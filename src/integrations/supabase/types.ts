@@ -1483,6 +1483,8 @@ export type Database = {
           credit_score: number | null
           data_sharing_consent: boolean | null
           date_of_birth: string
+          disbursed_amount: number | null
+          due_date: string | null
           email_address: string
           employer_address: string | null
           employer_business_name: string | null
@@ -1508,7 +1510,9 @@ export type Database = {
           phone_number: string
           physical_address: string
           postal_address: string | null
+          repaid_amount: number | null
           repayment_frequency: string | null
+          repayment_rate: number | null
           repayment_source: string | null
           risk_rating: string | null
           status: string | null
@@ -1528,6 +1532,8 @@ export type Database = {
           credit_score?: number | null
           data_sharing_consent?: boolean | null
           date_of_birth: string
+          disbursed_amount?: number | null
+          due_date?: string | null
           email_address: string
           employer_address?: string | null
           employer_business_name?: string | null
@@ -1553,7 +1559,9 @@ export type Database = {
           phone_number: string
           physical_address: string
           postal_address?: string | null
+          repaid_amount?: number | null
           repayment_frequency?: string | null
+          repayment_rate?: number | null
           repayment_source?: string | null
           risk_rating?: string | null
           status?: string | null
@@ -1573,6 +1581,8 @@ export type Database = {
           credit_score?: number | null
           data_sharing_consent?: boolean | null
           date_of_birth?: string
+          disbursed_amount?: number | null
+          due_date?: string | null
           email_address?: string
           employer_address?: string | null
           employer_business_name?: string | null
@@ -1598,7 +1608,9 @@ export type Database = {
           phone_number?: string
           physical_address?: string
           postal_address?: string | null
+          repaid_amount?: number | null
           repayment_frequency?: string | null
+          repayment_rate?: number | null
           repayment_source?: string | null
           risk_rating?: string | null
           status?: string | null
@@ -2796,6 +2808,7 @@ export type Database = {
           loan_eligibility: number | null
           phone_number: string | null
           preferred_language: string | null
+          region: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -2810,6 +2823,7 @@ export type Database = {
           loan_eligibility?: number | null
           phone_number?: string | null
           preferred_language?: string | null
+          region?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -2824,6 +2838,7 @@ export type Database = {
           loan_eligibility?: number | null
           phone_number?: string | null
           preferred_language?: string | null
+          region?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
@@ -4045,6 +4060,14 @@ export type Database = {
         }
         Returns: string
       }
+      admin_update_loan_status: {
+        Args: {
+          p_loan_id: string
+          p_rejection_reason?: string
+          p_status: string
+        }
+        Returns: Json
+      }
       approve_chama_member: {
         Args: { member_id_to_approve: string }
         Returns: undefined
@@ -4135,6 +4158,48 @@ export type Database = {
           total_contributions: number
           total_loans: number
           total_members: number
+        }[]
+      }
+      get_admin_loan_statistics: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active_loans: number
+          avg_repayment_rate: number
+          completed_loans: number
+          overdue_loans: number
+          pending_loans: number
+          risk_distribution: Json
+          total_loans: number
+          total_volume: number
+        }[]
+      }
+      get_admin_loans_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          approved_at: string
+          borrower_email: string
+          borrower_name: string
+          borrower_region: string
+          chama_name: string
+          created_at: string
+          credit_score: number
+          days_overdue: number
+          disbursed_amount: number
+          due_date: string
+          employment_status: string
+          funded_at: string
+          funding_progress: number
+          id: string
+          interest_rate: number
+          loan_amount: number
+          loan_purpose: string
+          loan_term_months: number
+          monthly_income: number
+          remaining_amount: number
+          repaid_amount: number
+          repayment_rate: number
+          risk_rating: string
+          status: string
         }[]
       }
       get_chama_contribution_summary: {

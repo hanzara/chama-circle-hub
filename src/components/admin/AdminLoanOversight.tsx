@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -13,90 +15,86 @@ import {
   Eye, 
   Filter,
   Download,
-  Search
+  Search,
+  UserCheck,
+  UserX,
+  Loader2
 } from 'lucide-react';
+import { 
+  useAdminLoansOverview, 
+  useAdminLoanStatistics, 
+  useUpdateLoanStatus, 
+  useExportLoanData, 
+  useAdminLoanRegions,
+  AdminLoanData 
+} from '@/hooks/useAdminLoanOversight';
 
 const AdminLoanOversight: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [riskFilter, setRiskFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [regionFilter, setRegionFilter] = useState('all');
+  const [selectedLoan, setSelectedLoan] = useState<AdminLoanData | null>(null);
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [actionType, setActionType] = useState<'approve' | 'reject' | 'disburse' | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
-  // Mock loan data
-  const loans = [
-    {
-      id: 'L001',
-      borrowerName: 'Joseph Nzai',
-      chamaName: 'Makini Self Help Group',
-      amount: 50000,
-      interestRate: 12,
-      status: 'active',
-      riskLevel: 'low',
-      region: 'Kilifi',
-      disbursedDate: '2024-05-15',
-      dueDate: '2024-11-15',
-      repaidAmount: 20000,
-      remainingAmount: 30000,
-      creditScore: 785,
-      repaymentRate: 95
-    },
-    {
-      id: 'L002',
-      borrowerName: 'Mary Wanjiku',
-      chamaName: 'Women Empowerment',
-      amount: 75000,
-      interestRate: 15,
-      status: 'overdue',
-      riskLevel: 'high',
-      region: 'Mombasa',
-      disbursedDate: '2024-04-10',
-      dueDate: '2024-10-10',
-      repaidAmount: 25000,
-      remainingAmount: 50000,
-      creditScore: 620,
-      repaymentRate: 65
-    },
-    {
-      id: 'L003',
-      borrowerName: 'Peter Otieno',
-      chamaName: 'Youth Business Fund',
-      amount: 30000,
-      interestRate: 10,
-      status: 'pending',
-      riskLevel: 'medium',
-      region: 'Kisumu',
-      disbursedDate: null,
-      dueDate: null,
-      repaidAmount: 0,
-      remainingAmount: 30000,
-      creditScore: 680,
-      repaymentRate: 80
-    }
-  ];
+  // Hooks for data fetching and mutations
+  const { data: loans = [], isLoading: loansLoading, error: loansError } = useAdminLoansOverview();
+  const { data: loanStats, isLoading: statsLoading } = useAdminLoanStatistics();
+  const { data: regions = [] } = useAdminLoanRegions();
+  const updateLoanStatus = useUpdateLoanStatus();
+  const exportLoanData = useExportLoanData();
 
-  const loanStats = {
-    totalLoans: 8934,
-    totalVolume: 456000000,
-    activeLoans: 6750,
-    overdueLoans: 234,
-    avgRepaymentRate: 87.5,
-    riskDistribution: {
-      low: 60,
-      medium: 25,
-      high: 15
-    }
-  };
-
-  const filteredLoans = loans.filter(loan => {
-    const matchesSearch = loan.borrowerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         loan.chamaName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  // Filter loans based on search and filter criteria
+  const filteredLoans = loans.filter((loan: AdminLoanData) => {
+    const matchesSearch = loan.borrower_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         loan.borrower_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         loan.chama_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          loan.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRisk = riskFilter === 'all' || loan.riskLevel === riskFilter;
+    const matchesRisk = riskFilter === 'all' || loan.risk_rating === riskFilter;
     const matchesStatus = statusFilter === 'all' || loan.status === statusFilter;
-    const matchesRegion = regionFilter === 'all' || loan.region === regionFilter;
+    const matchesRegion = regionFilter === 'all' || loan.borrower_region === regionFilter;
     
     return matchesSearch && matchesRisk && matchesStatus && matchesRegion;
   });
+
+  const handleLoanAction = (loan: AdminLoanData, action: 'approve' | 'reject' | 'disburse') => {
+    setSelectedLoan(loan);
+    setActionType(action);
+    setActionDialogOpen(true);
+    setRejectionReason('');
+  };
+
+  const handleConfirmAction = () => {
+    if (!selectedLoan || !actionType) return;
+
+    const statusMap = {
+      approve: 'approved',
+      reject: 'rejected',
+      disburse: 'funded'
+    };
+
+    updateLoanStatus.mutate({
+      loanId: selectedLoan.id,
+      status: statusMap[actionType],
+      rejectionReason: actionType === 'reject' ? rejectionReason : undefined,
+    });
+
+    setActionDialogOpen(false);
+    setSelectedLoan(null);
+    setActionType(null);
+    setRejectionReason('');
+  };
+
+  const handleExport = () => {
+    exportLoanData.mutate({
+      status: statusFilter !== 'all' ? statusFilter : undefined,
+      riskLevel: riskFilter !== 'all' ? riskFilter : undefined,
+      region: regionFilter !== 'all' ? regionFilter : undefined,
+      searchTerm: searchTerm || undefined,
+    });
+  };
 
   const getRiskBadgeColor = (risk: string) => {
     switch (risk) {
@@ -113,9 +111,24 @@ const AdminLoanOversight: React.FC = () => {
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'overdue': return 'bg-red-100 text-red-800 border-red-200';
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
+      case 'approved': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'rejected': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'funded': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
+
+  if (loansError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load loan data</h3>
+          <p className="text-gray-600">Please try refreshing the page</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -127,8 +140,14 @@ const AdminLoanOversight: React.FC = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loanStats.totalLoans.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">All-time loans</p>
+            {statsLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{loanStats?.total_loans?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground">All-time loans</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -138,8 +157,16 @@ const AdminLoanOversight: React.FC = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">KES {(loanStats.totalVolume / 1000000).toFixed(0)}M</div>
-            <p className="text-xs text-muted-foreground">Total disbursed</p>
+            {statsLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  KES {((loanStats?.total_volume || 0) / 1000000).toFixed(1)}M
+                </div>
+                <p className="text-xs text-muted-foreground">Total disbursed</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -149,8 +176,16 @@ const AdminLoanOversight: React.FC = () => {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{loanStats.activeLoans.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Currently active</p>
+            {statsLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-green-600">
+                  {loanStats?.active_loans?.toLocaleString() || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Currently active</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -160,8 +195,16 @@ const AdminLoanOversight: React.FC = () => {
             <AlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{loanStats.overdueLoans}</div>
-            <p className="text-xs text-muted-foreground">Require attention</p>
+            {statsLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-red-600">
+                  {loanStats?.overdue_loans || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Require attention</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -171,8 +214,16 @@ const AdminLoanOversight: React.FC = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loanStats.avgRepaymentRate}%</div>
-            <p className="text-xs text-muted-foreground">Platform average</p>
+            {statsLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {(loanStats?.avg_repayment_rate || 0).toFixed(1)}%
+                </div>
+                <p className="text-xs text-muted-foreground">Platform average</p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -218,9 +269,12 @@ const AdminLoanOversight: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="funded">Funded</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -230,14 +284,23 @@ const AdminLoanOversight: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Regions</SelectItem>
-                  <SelectItem value="Nairobi">Nairobi</SelectItem>
-                  <SelectItem value="Mombasa">Mombasa</SelectItem>
-                  <SelectItem value="Kisumu">Kisumu</SelectItem>
+                  {regions.map((region) => (
+                    <SelectItem key={region} value={region}>{region}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-1" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExport}
+                disabled={exportLoanData.isPending}
+              >
+                {exportLoanData.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1" />
+                )}
                 Export
               </Button>
             </div>
@@ -246,86 +309,182 @@ const AdminLoanOversight: React.FC = () => {
       </Card>
 
       {/* Loans List */}
-      <div className="space-y-4">
-        {filteredLoans.map((loan) => (
-          <Card key={loan.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                      {loan.id}
+      {loansLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredLoans.length === 0 ? (
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-6 text-center">
+                <p className="text-gray-500">No loans found matching your criteria</p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredLoans.map((loan) => (
+              <Card key={loan.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                          {loan.id.slice(0, 3).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">{loan.borrower_name}</h3>
+                          <p className="text-sm text-muted-foreground">{loan.chama_name}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-6 mb-4">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Amount</p>
+                          <p className="font-semibold">KES {loan.loan_amount.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Interest Rate</p>
+                          <p className="font-semibold">{loan.interest_rate}%</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Repaid</p>
+                          <p className="font-semibold text-green-600">KES {loan.repaid_amount.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Remaining</p>
+                          <p className="font-semibold text-orange-600">KES {loan.remaining_amount.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Credit Score</p>
+                          <p className={`font-semibold ${loan.credit_score >= 700 ? 'text-green-600' : loan.credit_score >= 600 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {loan.credit_score}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Repayment Rate</p>
+                          <p className={`font-semibold ${loan.repayment_rate >= 80 ? 'text-green-600' : loan.repayment_rate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {loan.repayment_rate.toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <Badge className={getRiskBadgeColor(loan.risk_rating)}>
+                          {loan.risk_rating.charAt(0).toUpperCase() + loan.risk_rating.slice(1)} Risk
+                        </Badge>
+                        <Badge className={getStatusBadgeColor(loan.status)}>
+                          {loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">{loan.borrower_region}</span>
+                        {loan.days_overdue > 0 && (
+                          <span className="text-sm text-red-600 font-medium">
+                            {loan.days_overdue} days overdue
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">{loan.borrowerName}</h3>
-                      <p className="text-sm text-muted-foreground">{loan.chamaName}</p>
+
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <Eye className="h-4 w-4 mr-1" />
+                        View Details
+                      </Button>
+                      
+                      {loan.status === 'pending' && (
+                        <>
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => handleLoanAction(loan, 'approve')}
+                            disabled={updateLoanStatus.isPending}
+                          >
+                            <UserCheck className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => handleLoanAction(loan, 'reject')}
+                            disabled={updateLoanStatus.isPending}
+                          >
+                            <UserX className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      
+                      {loan.status === 'approved' && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          onClick={() => handleLoanAction(loan, 'disburse')}
+                          disabled={updateLoanStatus.isPending}
+                        >
+                          <DollarSign className="h-4 w-4 mr-1" />
+                          Disburse
+                        </Button>
+                      )}
+                      
+                      {loan.status === 'overdue' && (
+                        <Button variant="destructive" size="sm">
+                          <AlertTriangle className="h-4 w-4 mr-1" />
+                          Flag
+                        </Button>
+                      )}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
 
-                  <div className="grid gap-4 md:grid-cols-6 mb-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Amount</p>
-                      <p className="font-semibold">KES {loan.amount.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Interest Rate</p>
-                      <p className="font-semibold">{loan.interestRate}%</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Repaid</p>
-                      <p className="font-semibold text-green-600">KES {loan.repaidAmount.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Remaining</p>
-                      <p className="font-semibold text-orange-600">KES {loan.remainingAmount.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Credit Score</p>
-                      <p className={`font-semibold ${loan.creditScore >= 700 ? 'text-green-600' : loan.creditScore >= 600 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {loan.creditScore}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Repayment Rate</p>
-                      <p className={`font-semibold ${loan.repaymentRate >= 80 ? 'text-green-600' : loan.repaymentRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {loan.repaymentRate}%
-                      </p>
-                    </div>
-                  </div>
+      {/* Action Confirmation Dialog */}
+      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {actionType === 'approve' && 'Approve Loan Application'}
+              {actionType === 'reject' && 'Reject Loan Application'}
+              {actionType === 'disburse' && 'Disburse Loan Funds'}
+            </DialogTitle>
+            <DialogDescription>
+              {actionType === 'approve' && 'Are you sure you want to approve this loan application?'}
+              {actionType === 'reject' && 'Please provide a reason for rejecting this loan application.'}
+              {actionType === 'disburse' && 'Are you sure you want to disburse funds for this loan?'}
+            </DialogDescription>
+          </DialogHeader>
 
-                  <div className="flex items-center gap-4">
-                    <Badge className={getRiskBadgeColor(loan.riskLevel)}>
-                      {loan.riskLevel.charAt(0).toUpperCase() + loan.riskLevel.slice(1)} Risk
-                    </Badge>
-                    <Badge className={getStatusBadgeColor(loan.status)}>
-                      {loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">{loan.region}</span>
-                    {loan.disbursedDate && (
-                      <span className="text-sm text-muted-foreground">
-                        Disbursed: {loan.disbursedDate}
-                      </span>
-                    )}
-                  </div>
-                </div>
+          {actionType === 'reject' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rejection Reason</label>
+              <Textarea
+                placeholder="Please explain why this loan is being rejected..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          )}
 
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4 mr-1" />
-                    View Details
-                  </Button>
-                  {loan.status === 'overdue' && (
-                    <Button variant="destructive" size="sm">
-                      <AlertTriangle className="h-4 w-4 mr-1" />
-                      Flag
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActionDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmAction}
+              disabled={updateLoanStatus.isPending || (actionType === 'reject' && !rejectionReason.trim())}
+              variant={actionType === 'reject' ? 'destructive' : 'default'}
+            >
+              {updateLoanStatus.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {actionType === 'approve' && 'Approve Loan'}
+              {actionType === 'reject' && 'Reject Loan'}
+              {actionType === 'disburse' && 'Disburse Funds'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
