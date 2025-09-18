@@ -1,0 +1,35 @@
+project_id = "gkretenuuixzcivejwnb"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["https://localhost:5173"]
+jwt_expiry = 3600
+enable_signup = true
+enable_confirmations = false
+
+[db]
+port = 54322
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[edge_functions]
+enabled = true
+
+[functions.chama-wallet-api]
+verify_jwt = true
+
+[functions.mpesa-integration]
+verify_jwt = true
+
+[functions.mpesa-callback]
+verify_jwt = false
