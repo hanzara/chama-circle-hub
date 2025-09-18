@@ -4072,6 +4072,10 @@ export type Database = {
         Args: { member_id_to_approve: string }
         Returns: undefined
       }
+      assign_admin_role: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
       assign_role_with_credential: {
         Args: {
           p_chama_id: string
