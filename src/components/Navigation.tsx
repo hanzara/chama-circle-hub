@@ -190,38 +190,11 @@ const Navigation = () => {
             </div>
           </div>
 
-          {/* Main Navigation Tabs */}
+          {/* Navigation - Only show subtabs when in a specific section */}
           {user && (
             <div className="py-4">
-              {/* Main Tabs */}
-              <div className="flex justify-center mb-4">
-                <div className="flex items-center gap-2 bg-kenyan-navy/5 rounded-xl p-2 shadow-sm border border-kenyan-navy/10">
-                  {mainTabs.map((tab) => {
-                    const IconComponent = tab.icon;
-                    return (
-                      <Button
-                        key={tab.id}
-                        variant={isActiveTab(tab.id) ? "default" : "ghost"}
-                        onClick={() => {
-                          setActiveMainTab(tab.id);
-                          navigate(tab.path);
-                        }}
-                        className={`h-10 px-4 rounded-lg font-semibold transition-all duration-300 hover:scale-105 focus-visible:ring-2 focus-visible:ring-kenyan-green/20 ${
-                          isActiveTab(tab.id) 
-                            ? 'bg-kenyan-green text-white shadow-lg shadow-kenyan-green/20' 
-                            : 'text-kenyan-navy/70 hover:text-kenyan-navy hover:bg-kenyan-green/10'
-                        }`}
-                      >
-                        <IconComponent className="h-5 w-5 mr-2" />
-                        {tab.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Subtabs - Only show for active tab with subtabs */}
-              {getActiveSubtabs().length > 0 && (
+              {/* Only show subtabs if we have an active tab with subtabs, hide main tabs */}
+              {getActiveSubtabs().length > 0 ? (
                 <div className="flex justify-center">
                   <div className="flex items-center gap-2 bg-kenyan-green/5 rounded-lg p-2 shadow-sm border border-kenyan-green/10">
                     {getActiveSubtabs().map((subtab, index) => (
@@ -238,6 +211,33 @@ const Navigation = () => {
                         {subtab.label}
                       </Button>
                     ))}
+                  </div>
+                </div>
+              ) : (
+                // Show main tabs only when not in a specific section (e.g., home page)
+                <div className="flex justify-center">
+                  <div className="flex items-center gap-2 bg-kenyan-navy/5 rounded-xl p-2 shadow-sm border border-kenyan-navy/10">
+                    {mainTabs.map((tab) => {
+                      const IconComponent = tab.icon;
+                      return (
+                        <Button
+                          key={tab.id}
+                          variant={isActiveTab(tab.id) ? "default" : "ghost"}
+                          onClick={() => {
+                            setActiveMainTab(tab.id);
+                            navigate(tab.path);
+                          }}
+                          className={`h-10 px-4 rounded-lg font-semibold transition-all duration-300 hover:scale-105 focus-visible:ring-2 focus-visible:ring-kenyan-green/20 ${
+                            isActiveTab(tab.id) 
+                              ? 'bg-kenyan-green text-white shadow-lg shadow-kenyan-green/20' 
+                              : 'text-kenyan-navy/70 hover:text-kenyan-navy hover:bg-kenyan-green/10'
+                          }`}
+                        >
+                          <IconComponent className="h-5 w-5 mr-2" />
+                          {tab.label}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
