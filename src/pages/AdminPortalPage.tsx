@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
+import AdminLogin from '@/components/AdminLogin';
 import AdminUserDirectory from '@/components/admin/AdminUserDirectory';
 import AdminGroupOversight from '@/components/admin/AdminGroupOversight';
 import AdminAnalytics from '@/components/admin/AdminAnalytics';
@@ -38,6 +39,15 @@ import AdminMessaging from '@/components/admin/AdminMessaging';
 const AdminPortalPage: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handleLogin = (role: 'admin' | 'bank') => {
+    setIsAuthenticated(true);
+  };
+
+  if (!isAuthenticated) {
+    return <AdminLogin onLogin={handleLogin} type="admin" />;
+  }
 
   const adminStats = {
     totalUsers: 12547,

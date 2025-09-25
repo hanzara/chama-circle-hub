@@ -25,6 +25,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 import ScheduledGameLobby from '@/components/game/ScheduledGameLobby';
 import TriviaQuestion from '@/components/game/TriviaQuestion';
+import EnhancedTriviaGame from '@/components/game/EnhancedTriviaGame';
 import GameLeaderboard from '@/components/game/GameLeaderboard';
 import GameWallet from '@/components/game/GameWallet';
 import GameSubscription from '@/components/game/GameSubscription';
@@ -115,7 +116,12 @@ const TriviaGamePage: React.FC = () => {
         },
         {
           id: 'play',
-          label: 'Play Game',
+          label: 'Play Now',
+          content: <EnhancedTriviaGame />
+        },
+        {
+          id: 'scheduled',
+          label: 'Tournament Mode',
           content: currentGameId ? (
             <TriviaQuestion 
               gameId={currentGameId}
@@ -128,20 +134,7 @@ const TriviaGamePage: React.FC = () => {
               }}
             />
           ) : (
-            <Card className="border-0 bg-slate-800/50 backdrop-blur-xl shadow-2xl border border-slate-700/50 animate-fade-in">
-              <CardContent className="p-8 text-center">
-                <div className="mb-6">
-                  <div className="mx-auto w-16 h-16 bg-gradient-to-r from-slate-600/30 to-slate-700/30 rounded-full flex items-center justify-center border border-slate-600/50">
-                    <AlertCircle className="h-8 w-8 text-slate-400" />
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold text-slate-200 mb-2">No Active Game</h3>
-                <p className="text-slate-400 mb-6">Ready to test your financial knowledge?</p>
-                <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <p className="text-sm text-slate-300">💡 Join a scheduled game from the lobby to start earning!</p>
-                </div>
-              </CardContent>
-            </Card>
+            <ScheduledGameLobby onGameStart={handleGameStart} />
           )
         },
         {

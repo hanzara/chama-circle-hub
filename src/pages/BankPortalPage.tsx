@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
+import AdminLogin from '@/components/AdminLogin';
 import BankLoanMarketplace from '@/components/bank/BankLoanMarketplace';
 import BankBorrowerVerification from '@/components/bank/BankBorrowerVerification';
 import BankComplianceView from '@/components/bank/BankComplianceView';
@@ -31,6 +32,15 @@ import BankAuditLogs from '@/components/bank/BankAuditLogs';
 const BankPortalPage: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handleLogin = (role: 'admin' | 'bank') => {
+    setIsAuthenticated(true);
+  };
+
+  if (!isAuthenticated) {
+    return <AdminLogin onLogin={handleLogin} type="bank" />;
+  }
 
   const bankStats = {
     availableLoans: 234,
