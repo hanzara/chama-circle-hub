@@ -14,6 +14,7 @@ import Navigation from '@/components/Navigation';
 import CurrencyDisplay from '@/components/CurrencyDisplay';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import AdminLogin from '@/components/AdminLogin';
 
 interface Partner {
   id: string;
@@ -229,6 +230,7 @@ const PartnerDashboardPage: React.FC = () => {
   const [selectedPartner, setSelectedPartner] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const filteredRequests = mockRequests.filter(request => {
     const partnerMatch = selectedPartner === 'all' || request.partnerId === selectedPartner;
@@ -267,6 +269,14 @@ const PartnerDashboardPage: React.FC = () => {
   const getPartnerById = (partnerId: string) => {
     return partners.find(p => p.id === partnerId);
   };
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+  };
+
+  if (!isAuthenticated) {
+    return <AdminLogin onLogin={handleLogin} type="admin" />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">

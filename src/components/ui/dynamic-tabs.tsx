@@ -72,13 +72,13 @@ export const DynamicTabs: React.FC<DynamicTabsProps> = ({
   return (
     <div className={cn("w-full", className)}>
       {/* Main Tabs */}
-      <div className="flex flex-wrap gap-2 p-1 bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700/50 shadow-xl mb-6">
+      <div className="flex flex-wrap gap-1 md:gap-2 p-1 bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700/50 shadow-xl mb-6 overflow-x-auto">
         {mainTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => handleMainTabClick(tab.id)}
             className={cn(
-              "flex items-center gap-3 px-6 py-3 rounded-lg font-medium transition-all duration-300 relative overflow-hidden group",
+              "flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 md:py-3 rounded-lg font-medium transition-all duration-300 relative overflow-hidden group whitespace-nowrap flex-shrink-0",
               "hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400/20",
               activeMainTab === tab.id
                 ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
@@ -86,12 +86,12 @@ export const DynamicTabs: React.FC<DynamicTabsProps> = ({
             )}
           >
             <div className={cn(
-              "flex items-center justify-center w-5 h-5 transition-transform group-hover:scale-110",
+              "flex items-center justify-center w-4 h-4 md:w-5 md:h-5 transition-transform group-hover:scale-110",
               activeMainTab === tab.id ? "text-white" : "text-slate-400"
             )}>
               {tab.icon}
             </div>
-            <span className="text-sm font-medium">{tab.label}</span>
+            <span className="text-xs md:text-sm font-medium">{tab.label}</span>
             {activeMainTab === tab.id && (
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg animate-pulse"></div>
             )}
@@ -101,13 +101,13 @@ export const DynamicTabs: React.FC<DynamicTabsProps> = ({
 
       {/* Sub Tabs - Only show for active main tab with subtabs */}
       {activeMainTabData && activeMainTabData.subtabs && activeMainTabData.subtabs.length > 0 && (
-        <div className="flex flex-wrap gap-2 p-2 bg-slate-700/30 backdrop-blur-sm rounded-lg border border-slate-600/50 mb-6">
+        <div className="flex flex-wrap gap-1 md:gap-2 p-2 bg-slate-700/30 backdrop-blur-sm rounded-lg border border-slate-600/50 mb-6 overflow-x-auto">
           {activeMainTabData.subtabs.map((subTab) => (
             <button
               key={subTab.id}
               onClick={() => handleSubTabClick(subTab.id)}
               className={cn(
-                "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 relative group",
+                "px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-200 relative group whitespace-nowrap flex-shrink-0",
                 "hover:scale-105 focus:outline-none focus:ring-1 focus:ring-cyan-400/30",
                 activeSubTab === subTab.id
                   ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
