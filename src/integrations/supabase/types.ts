@@ -527,6 +527,63 @@ export type Database = {
           },
         ]
       }
+      chama_member_savings_accounts: {
+        Row: {
+          account_name: string
+          account_type: string
+          auto_save_amount: number | null
+          auto_save_enabled: boolean | null
+          chama_id: string
+          created_at: string | null
+          current_balance: number | null
+          id: string
+          interest_rate: number | null
+          member_id: string
+          minimum_balance: number | null
+          monthly_target: number | null
+          status: string | null
+          target_amount: number | null
+          updated_at: string | null
+          withdrawal_fee: number | null
+        }
+        Insert: {
+          account_name: string
+          account_type?: string
+          auto_save_amount?: number | null
+          auto_save_enabled?: boolean | null
+          chama_id: string
+          created_at?: string | null
+          current_balance?: number | null
+          id?: string
+          interest_rate?: number | null
+          member_id: string
+          minimum_balance?: number | null
+          monthly_target?: number | null
+          status?: string | null
+          target_amount?: number | null
+          updated_at?: string | null
+          withdrawal_fee?: number | null
+        }
+        Update: {
+          account_name?: string
+          account_type?: string
+          auto_save_amount?: number | null
+          auto_save_enabled?: boolean | null
+          chama_id?: string
+          created_at?: string | null
+          current_balance?: number | null
+          id?: string
+          interest_rate?: number | null
+          member_id?: string
+          minimum_balance?: number | null
+          monthly_target?: number | null
+          status?: string | null
+          target_amount?: number | null
+          updated_at?: string | null
+          withdrawal_fee?: number | null
+        }
+        Relationships: []
+      }
       chama_members: {
         Row: {
           auto_debit_enabled: boolean | null
@@ -765,6 +822,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chama_savings_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          chama_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          member_id: string
+          payment_method: string | null
+          processed_by: string | null
+          reference_number: string | null
+          savings_account_id: string
+          status: string | null
+          transaction_fee: number | null
+          transaction_type: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          chama_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          member_id: string
+          payment_method?: string | null
+          processed_by?: string | null
+          reference_number?: string | null
+          savings_account_id: string
+          status?: string | null
+          transaction_fee?: number | null
+          transaction_type: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          chama_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          member_id?: string
+          payment_method?: string | null
+          processed_by?: string | null
+          reference_number?: string | null
+          savings_account_id?: string
+          status?: string | null
+          transaction_fee?: number | null
+          transaction_type?: string
+        }
+        Relationships: []
       }
       chama_settings: {
         Row: {
@@ -1328,6 +1436,45 @@ export type Database = {
           subcategory?: string | null
           transaction_date?: string
           transaction_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      investment_advisory: {
+        Row: {
+          advisor_fee: number | null
+          advisory_type: string
+          created_at: string | null
+          id: string
+          investment_amount: number | null
+          recommendations: Json | null
+          risk_profile: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          advisor_fee?: number | null
+          advisory_type: string
+          created_at?: string | null
+          id?: string
+          investment_amount?: number | null
+          recommendations?: Json | null
+          risk_profile?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          advisor_fee?: number | null
+          advisory_type?: string
+          created_at?: string | null
+          id?: string
+          investment_amount?: number | null
+          recommendations?: Json | null
+          risk_profile?: string | null
+          status?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -3001,6 +3148,51 @@ export type Database = {
           },
         ]
       }
+      premium_subscriptions: {
+        Row: {
+          auto_renew: boolean | null
+          billing_cycle: string | null
+          chama_id: string | null
+          created_at: string | null
+          expires_at: string | null
+          features: Json
+          id: string
+          monthly_fee: number
+          status: string | null
+          subscription_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          auto_renew?: boolean | null
+          billing_cycle?: string | null
+          chama_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          features?: Json
+          id?: string
+          monthly_fee: number
+          status?: string | null
+          subscription_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          auto_renew?: boolean | null
+          billing_cycle?: string | null
+          chama_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          features?: Json
+          id?: string
+          monthly_fee?: number
+          status?: string | null
+          subscription_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           country: string | null
@@ -4386,6 +4578,10 @@ export type Database = {
         }
         Returns: string
       }
+      calculate_savings_interest: {
+        Args: { account_id: string }
+        Returns: number
+      }
       convert_currency: {
         Args: {
           p_amount: number
@@ -4417,6 +4613,15 @@ export type Database = {
           p_purpose: string
         }
         Returns: string
+      }
+      deposit_to_savings_account: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_payment_method?: string
+          p_reference?: string
+        }
+        Returns: Json
       }
       disburse_peer_loan: {
         Args: { p_offer_id: string; p_user_pin: string }

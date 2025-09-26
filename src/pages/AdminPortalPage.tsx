@@ -237,34 +237,56 @@ const AdminPortalPage: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="settings">
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Platform Settings
-                </CardTitle>
-                <CardDescription>
-                  Configure platform-wide settings and policies
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <Label htmlFor="transaction-fee">Transaction Fee (%)</Label>
-                      <Input id="transaction-fee" type="number" defaultValue="2.5" />
+            <div className="space-y-6">
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Platform Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Configure platform-wide settings and policies
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <Label htmlFor="transaction-fee">Transaction Fee (%)</Label>
+                        <Input id="transaction-fee" type="number" defaultValue="2.5" />
+                      </div>
+                      <div>
+                        <Label htmlFor="loan-processing-fee">Loan Processing Fee (KES)</Label>
+                        <Input id="loan-processing-fee" type="number" defaultValue="500" />
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="loan-processing-fee">Loan Processing Fee (KES)</Label>
-                      <Input id="loan-processing-fee" type="number" defaultValue="500" />
+                    <div className="flex justify-end">
+                      <Button>Save Settings</Button>
                     </div>
                   </div>
-                  <div className="flex justify-end">
-                    <Button>Save Settings</Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              {/* Admin Demo Integration */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TestTube className="h-5 w-5" />
+                    Admin Demo
+                  </CardTitle>
+                  <CardDescription>
+                    Interactive demo environment for testing admin features
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <iframe 
+                    src="/admin-demo" 
+                    className="w-full h-[600px] border rounded-lg"
+                    title="Admin Demo"
+                  />
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

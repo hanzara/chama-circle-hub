@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Smartphone, CreditCard, Building2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { DollarSign, Smartphone, CreditCard, Building2, CheckCircle, Clock, AlertTriangle, PiggyBank, Crown } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import CurrencyDisplay from '@/components/CurrencyDisplay';
 import ContributionTracker from './ContributionTracker';
+import MultipleSavingsAccounts from './MultipleSavingsAccounts';
+import PremiumFeaturesHub from '../premium/PremiumFeaturesHub';
 
 interface EnhancedSavingsContributionsProps {
   chamaData: any;
@@ -99,9 +101,11 @@ const EnhancedSavingsContributions: React.FC<EnhancedSavingsContributionsProps> 
       </div>
 
       <Tabs defaultValue="contribute" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="contribute">Make Contribution</TabsTrigger>
           <TabsTrigger value="tracker">Contribution Tracker</TabsTrigger>
+          <TabsTrigger value="savings">Multiple Savings</TabsTrigger>
+          <TabsTrigger value="premium">Premium Features</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -312,6 +316,22 @@ const EnhancedSavingsContributions: React.FC<EnhancedSavingsContributionsProps> 
 
         <TabsContent value="tracker">
           <ContributionTracker chamaData={chamaData} />
+        </TabsContent>
+
+        <TabsContent value="savings" className="space-y-6">
+          <div className="flex items-center gap-2 mb-4">
+            <PiggyBank className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Multiple Savings Accounts</h3>
+          </div>
+          <MultipleSavingsAccounts chamaId={chamaData?.id} />
+        </TabsContent>
+
+        <TabsContent value="premium" className="space-y-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Crown className="h-5 w-5 text-purple-500" />
+            <h3 className="text-lg font-semibold">Premium Features</h3>
+          </div>
+          <PremiumFeaturesHub />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
