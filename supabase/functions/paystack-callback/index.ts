@@ -196,18 +196,80 @@ serve(async (req) => {
         }
       }
     } else if (event === 'charge.failed') {
-      const reference = data.reference;
+      const {
+        reference,
+        gateway_response,
+        channel,
+        customer,
+        metadata,
+      } = data;
+
+      console.log('Processing failed payment:', reference);
+      console.log('Failure reason:', gateway_response);
+      console.log('Channel:', channel);
       
+      // Parse gateway response for balance info and other details
+      let parsedMessage = gateway_response || 'Payment failed';
+      let availableBalance = null;
+      
+      // Extract balance from gateway response if present
+      // Example: "Your Airtel Money balance is Ksh 35.00"
+      const balanceMatch = parsedMessage.match(/balance is\s+(?:Ksh|KES|Ksh\s+)([0-9,.]+)/i);
+      if (balanceMatch && balanceMatch[1]) {
+        availableBalance = parseFloat(balanceMatch[1].replace(/,/g, ''));
+      }
+
+      // Create user-friendly error message
+      let userMessage = parsedMessage;
+      if (availableBalance !== null) {
+        userMessage = `💳 Payment failed: Insufficient ${channel === 'mobile_money' ? 'mobile money' : 'account'} balance\n💼 Available balance: KES ${availableBalance.toFixed(2)}\n🔁 Please top up your account or try a smaller amount.`;
+      } else if (channel === 'mobile_money') {
+        userMessage = `💳 ${channel === 'mobile_money' ? 'Mobile Money' : 'Payment'} transaction failed\n${parsedMessage}\n🔁 Please try again or contact your provider.`;
+      }
+
       await supabase
         .from('mpesa_transactions')
         .update({
           status: 'failed',
           result_code: 1,
-          result_desc: data.gateway_response,
-          callback_data: callbackData,
+          result_desc: userMessage,
+          callback_data: {
+            ...callbackData,
+            available_balance: availableBalance,
+            original_message: gateway_response,
+          },
           updated_at: new Date().toISOString()
         })
         .eq('checkout_request_id', reference);
+
+      // Fetch user from transaction
+      const { data: transaction } = await supabase
+        .from('mpesa_transactions')
+        .select('user_id, chama_id, amount')
+        .eq('checkout_request_id', reference)
+        .single();
+
+      // Send notification to user about the failure
+      if (transaction?.user_id) {
+        await supabase
+          .from('chama_notifications')
+          .insert({
+            user_id: transaction.user_id,
+            chama_id: transaction.chama_id || null,
+            type: 'payment_failed',
+            title: '❌ Payment Failed',
+            message: userMessage,
+            data: {
+              amount: transaction.amount,
+              channel,
+              reference,
+              available_balance: availableBalance,
+              reason: gateway_response,
+            },
+          });
+      }
+
+      console.log('Failed payment recorded with user-friendly message');
     }
 
     return new Response('OK', { status: 200, headers: corsHeaders });

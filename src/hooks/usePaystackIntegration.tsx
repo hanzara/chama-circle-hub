@@ -187,6 +187,21 @@ export const usePaystackIntegration = () => {
 
       return data;
     },
+    onSuccess: (data) => {
+      if (data?.data?.status === 'success') {
+        toast({
+          title: "✅ Payment Verified",
+          description: `Your payment of KES ${(data.data.amount / 100).toFixed(2)} was successful!`,
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "❌ Verification Failed",
+        description: error.message || 'Could not verify payment status',
+        variant: "destructive",
+      });
+    },
   });
 
   // Query to get user's payment transaction history
