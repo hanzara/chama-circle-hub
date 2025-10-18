@@ -58,6 +58,33 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
       return;
     }
 
+    // Format phone number to international format (254...)
+    let formattedPhone = phoneNumber;
+    if (paymentMethod === 'mobile_money' || paymentMethod === 'airtel_money') {
+      // Remove any spaces, dashes, or plus signs
+      formattedPhone = phoneNumber.replace(/[\s\-+]/g, '');
+      
+      // Convert 07... to 2547... or 01... to 2541...
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = '254' + formattedPhone.substring(1);
+      }
+      
+      // Ensure it starts with 254
+      if (!formattedPhone.startsWith('254')) {
+        formattedPhone = '254' + formattedPhone;
+      }
+
+      // Validate it's a valid Kenyan number (should be 254 + 9 digits = 12 digits)
+      if (formattedPhone.length !== 12 || !formattedPhone.match(/^254[0-9]{9}$/)) {
+        toast({
+          title: "Invalid Phone Number",
+          description: "Please enter a valid Kenyan phone number (e.g., 0712345678)",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const numericAmount = parseFloat(amount);
     if (numericAmount <= 0 || numericAmount > 100000) {
       toast({
@@ -77,7 +104,7 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
         amount: numericAmount,
         purpose: 'other',
         description: `Wallet top-up via ${selectedMethod?.name}`,
-        phoneNumber: phoneNumber || undefined,
+        phoneNumber: formattedPhone || undefined,
         channels: (paymentMethod === 'mobile_money' || paymentMethod === 'airtel_money')
           ? ['mobile_money'] 
           : ['card', 'bank', 'ussd', 'bank_transfer']
@@ -87,7 +114,7 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
         title: "Payment Initiated",
         description: paymentMethod === 'card' 
           ? "Complete payment on the Paystack page"
-          : `Check your phone for ${selectedMethod?.name} payment prompt`,
+          : `Check ${formattedPhone} for ${selectedMethod?.name} payment prompt`,
       });
 
       setAmount('');
@@ -174,13 +201,13 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="2547XXXXXXXX"
+                  placeholder="0712345678 or 254712345678"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  You'll receive a payment prompt to confirm the transaction
+                  Enter your {paymentMethod === 'airtel_money' ? 'Airtel Money' : 'M-Pesa'} number. You'll receive a prompt to enter your PIN.
                 </p>
               </div>
             )}
