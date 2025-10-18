@@ -71,24 +71,14 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
     try {
       const selectedMethod = paymentMethods.find(m => m.id === paymentMethod);
       
-      // Handle Airtel Money separately (direct integration not yet configured)
-      if (paymentMethod === 'airtel_money') {
-        toast({
-          title: "Airtel Money Not Yet Supported",
-          description: "Please use the M-Pesa option which supports multiple mobile money providers including M-Pesa through Paystack.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Route M-Pesa and cards through Paystack
+      // Route ALL mobile money (M-Pesa and Airtel) and cards through Paystack
       await initializePaystackPayment.mutateAsync({
         email: user?.email,
         amount: numericAmount,
         purpose: 'other',
         description: `Wallet top-up via ${selectedMethod?.name}`,
         phoneNumber: phoneNumber || undefined,
-        channels: paymentMethod === 'mobile_money'
+        channels: (paymentMethod === 'mobile_money' || paymentMethod === 'airtel_money')
           ? ['mobile_money'] 
           : ['card', 'bank', 'ussd', 'bank_transfer']
       });
@@ -97,7 +87,7 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
         title: "Payment Initiated",
         description: paymentMethod === 'card' 
           ? "Complete payment on the Paystack page"
-          : "Check your phone for M-Pesa payment prompt",
+          : `Check your phone for ${selectedMethod?.name} payment prompt`,
       });
 
       setAmount('');
