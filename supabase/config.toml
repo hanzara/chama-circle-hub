@@ -1,0 +1,106 @@
+project_id = "yrywjbxqlqpdzrudfupm"
+
+[functions.make-contribution]
+verify_jwt = true
+
+[functions.add-money]
+verify_jwt = true
+
+[functions.send-money]
+verify_jwt = true
+
+[functions.get-dashboard-data]
+verify_jwt = true
+
+[functions.mpesa-integration]
+verify_jwt = true
+
+[functions.mpesa-callback]
+verify_jwt = false
+
+[functions.paystack-integration]
+verify_jwt = true
+
+[functions.paystack-callback]
+verify_jwt = false
+
+[functions.personal-savings-ops]
+verify_jwt = true
+
+[functions.chama-wallet-operations]
+verify_jwt = true
+
+[functions.chama-wallet-ops]
+verify_jwt = true
+
+[functions.chama-wallet-api]
+verify_jwt = true
+
+[functions.verify-contribution]
+verify_jwt = true
+
+[functions.disburse-loan]
+verify_jwt = true
+
+[functions.repay-chama-loan]
+verify_jwt = true
+
+[functions.send-loan-funds]
+verify_jwt = true
+
+[functions.edit-loan-balance]
+verify_jwt = true
+
+[functions.assign-role]
+verify_jwt = true
+
+[functions.generate-report]
+verify_jwt = true
+
+[functions.export-chama-data]
+verify_jwt = true
+
+[functions.track-analytics]
+verify_jwt = true
+
+[functions.send-sms-invitation]
+verify_jwt = true
+
+[functions.send-announcement]
+verify_jwt = true
+
+[functions.chama-announcements]
+verify_jwt = true
+
+[functions.manage-mgr-schedule]
+verify_jwt = true
+
+[functions.central-wallet-overview]
+verify_jwt = true
+
+[functions.wifi-wallet-topup]
+verify_jwt = true
+
+[functions.wifi-purchase-package]
+verify_jwt = true
+
+[functions.wifi-extend-session]
+verify_jwt = true
+
+[functions.ai-finance-chat]
+verify_jwt = true
+
+[functions.manual-credit-payment]
+verify_jwt = true
+
+[functions.sync-mpesa-balance]
+verify_jwt = true
+
+[functions.link-account-callback]
+verify_jwt = false
+
+[functions.airtel-money-payment]
+verify_jwt = true
+
+[functions.airtel-money-callback]
+verify_jwt = false
