@@ -8,6 +8,7 @@ import { Loader2, Smartphone, CreditCard, Link as LinkIcon } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { usePaystackIntegration } from '@/hooks/usePaystackIntegration';
+import { useAirtelMoney } from '@/hooks/useAirtelMoney';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LinkAccountModal } from './LinkAccountModal';
@@ -29,6 +30,7 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
   const { user } = useAuth();
   const { toast } = useToast();
   const { initializePayment: initializePaystackPayment, isProcessingPayment: isProcessingPaystack } = usePaystackIntegration();
+  const { initiatePayment: initiateAirtelPayment } = useAirtelMoney();
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -69,14 +71,24 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
     try {
       const selectedMethod = paymentMethods.find(m => m.id === paymentMethod);
       
-      // Route ALL mobile money (M-Pesa and Airtel) through Paystack
+      // Handle Airtel Money separately (direct integration not yet configured)
+      if (paymentMethod === 'airtel_money') {
+        toast({
+          title: "Airtel Money Not Yet Supported",
+          description: "Please use the M-Pesa option which supports multiple mobile money providers including M-Pesa through Paystack.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Route M-Pesa and cards through Paystack
       await initializePaystackPayment.mutateAsync({
         email: user?.email,
         amount: numericAmount,
         purpose: 'other',
         description: `Wallet top-up via ${selectedMethod?.name}`,
         phoneNumber: phoneNumber || undefined,
-        channels: (paymentMethod === 'mobile_money' || paymentMethod === 'airtel_money')
+        channels: paymentMethod === 'mobile_money'
           ? ['mobile_money'] 
           : ['card', 'bank', 'ussd', 'bank_transfer']
       });
@@ -85,7 +97,7 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
         title: "Payment Initiated",
         description: paymentMethod === 'card' 
           ? "Complete payment on the Paystack page"
-          : "Check your phone for payment prompt",
+          : "Check your phone for M-Pesa payment prompt",
       });
 
       setAmount('');
