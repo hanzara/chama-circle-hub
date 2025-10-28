@@ -556,5 +556,564 @@ async function loadWorkerServices() {
     }
 }
 
-// Placeholder for other functions - to be continued...
-// These would include: transactions, expenditures, submissions, shifts, receipts, etc.
+// ============= TRANSACTION MANAGEMENT =============
+
+let currentSale = { items: [], subtotal: 0, discount: null, discountAmount: 0, total: 0 };
+
+function addToSale(item, type) {
+    const existingItem = currentSale.items.find(i => i.id === item.id && i.type === type);
+    
+    if (existingItem) {
+        if (type === 'product') {
+            existingItem.quantity++;
+            existingItem.subtotal = existingItem.quantity * existingItem.price;
+        }
+    } else {
+        currentSale.items.push({
+            id: item.id,
+            name: item.name,
+            price: parseFloat(item.price),
+            quantity: type === 'product' ? 1 : 1,
+            subtotal: parseFloat(item.price),
+            type: type
+        });
+    }
+    
+    updateSaleDisplay();
+}
+
+function removeFromSale(index) {
+    currentSale.items.splice(index, 1);
+    updateSaleDisplay();
+}
+
+function updateSaleDisplay() {
+    const table = document.getElementById('saleItems');
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    currentSale.subtotal = 0;
+    
+    currentSale.items.forEach((item, index) => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = item.name;
+        row.insertCell(1).textContent = item.type === 'product' ? item.quantity : 'N/A';
+        row.insertCell(2).textContent = `Ksh.${item.price.toFixed(2)}`;
+        row.insertCell(3).textContent = `Ksh.${item.subtotal.toFixed(2)}`;
+        
+        const removeCell = row.insertCell(4);
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove';
+        removeBtn.className = 'danger-btn';
+        removeBtn.onclick = () => removeFromSale(index);
+        removeCell.appendChild(removeBtn);
+        
+        currentSale.subtotal += item.subtotal;
+    });
+    
+    // Apply discount
+    if (currentSale.discount) {
+        if (currentSale.discount.type === 'percentage') {
+            currentSale.discountAmount = (currentSale.subtotal * currentSale.discount.value) / 100;
+        } else {
+            currentSale.discountAmount = currentSale.discount.value;
+        }
+    } else {
+        currentSale.discountAmount = 0;
+    }
+    
+    currentSale.total = currentSale.subtotal - currentSale.discountAmount;
+    
+    document.getElementById('saleSubtotal').textContent = `Ksh.${currentSale.subtotal.toFixed(2)}`;
+    document.getElementById('saleDiscount').textContent = `Ksh.${currentSale.discountAmount.toFixed(2)}`;
+    document.getElementById('saleTotal').textContent = `Ksh.${currentSale.total.toFixed(2)}`;
+}
+
+function applyDiscount() {
+    const type = document.getElementById('discountType').value;
+    const value = parseFloat(document.getElementById('discountValue').value);
+    
+    if (isNaN(value) || value < 0) {
+        alert('Please enter a valid discount value');
+        return;
+    }
+    
+    currentSale.discount = { type, value };
+    updateSaleDisplay();
+}
+
+function clearDiscount() {
+    currentSale.discount = null;
+    document.getElementById('discountValue').value = '';
+    updateSaleDisplay();
+}
+
+async function completeSale() {
+    if (currentSale.items.length === 0) {
+        alert('Please add items to the sale');
+        return;
+    }
+    
+    const paymentMode = document.getElementById('paymentMode').value;
+    const customerName = document.getElementById('customerName').value;
+    const customerPhone = document.getElementById('customerPhone').value;
+    
+    try {
+        // Get next receipt number
+        const { data: counter, error: counterError } = await supabase
+            .from('receipt_counter')
+            .select('counter')
+            .single();
+        
+        if (counterError) throw counterError;
+        
+        const receiptNumber = `RCP${String(counter.counter).padStart(6, '0')}`;
+        
+        // Update product stock
+        for (const item of currentSale.items) {
+            if (item.type === 'product') {
+                const product = products.find(p => p.id === item.id);
+                const newStock = product.stock - item.quantity;
+                
+                const { error: stockError } = await supabase
+                    .from('products')
+                    .update({ stock: newStock })
+                    .eq('id', item.id);
+                
+                if (stockError) throw stockError;
+            }
+        }
+        
+        // Create transaction
+        const { error: transactionError } = await supabase
+            .from('transactions')
+            .insert({
+                worker_id: currentUser.id,
+                receipt_number: receiptNumber,
+                items: currentSale.items,
+                subtotal: currentSale.subtotal,
+                discount: currentSale.discount,
+                discount_amount: currentSale.discountAmount,
+                total: currentSale.total,
+                payment_mode: paymentMode,
+                customer: customerName || customerPhone ? {
+                    name: customerName,
+                    phone: customerPhone
+                } : null
+            });
+        
+        if (transactionError) throw transactionError;
+        
+        // Increment receipt counter
+        const { error: incrementError } = await supabase
+            .from('receipt_counter')
+            .update({ counter: counter.counter + 1 })
+            .eq('id', 1);
+        
+        if (incrementError) throw incrementError;
+        
+        // Print receipt
+        printReceipt(receiptNumber, paymentMode, customerName, customerPhone);
+        
+        // Clear sale
+        currentSale = { items: [], subtotal: 0, discount: null, discountAmount: 0, total: 0 };
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('discountValue').value = '';
+        updateSaleDisplay();
+        
+        await loadWorkerProducts();
+        alert('Sale completed successfully!');
+        
+    } catch (error) {
+        console.error('Error completing sale:', error);
+        alert('Error completing sale: ' + error.message);
+    }
+}
+
+function printReceipt(receiptNumber, paymentMode, customerName, customerPhone) {
+    const receiptWindow = window.open('', '_blank');
+    
+    let receiptHTML = `
+        <html>
+        <head>
+            <title>Receipt ${receiptNumber}</title>
+            <style>
+                body { font-family: monospace; padding: 20px; }
+                .header { text-align: center; margin-bottom: 20px; }
+                .items { margin: 20px 0; }
+                .total { margin-top: 20px; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>POS SYSTEM</h2>
+                <p>Receipt: ${receiptNumber}</p>
+                <p>Date: ${new Date().toLocaleString()}</p>
+                <p>Worker: ${currentUser.username}</p>
+                ${customerName || customerPhone ? `<p>Customer: ${customerName} ${customerPhone}</p>` : ''}
+            </div>
+            <hr>
+            <div class="items">
+                <table width="100%">
+    `;
+    
+    currentSale.items.forEach(item => {
+        receiptHTML += `
+            <tr>
+                <td>${item.name}</td>
+                <td>${item.type === 'product' ? 'x' + item.quantity : ''}</td>
+                <td align="right">Ksh.${item.subtotal.toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    
+    receiptHTML += `
+                </table>
+            </div>
+            <hr>
+            <div class="total">
+                <p>Subtotal: Ksh.${currentSale.subtotal.toFixed(2)}</p>
+                ${currentSale.discountAmount > 0 ? `<p>Discount: -Ksh.${currentSale.discountAmount.toFixed(2)}</p>` : ''}
+                <p>TOTAL: Ksh.${currentSale.total.toFixed(2)}</p>
+                <p>Payment: ${paymentMode}</p>
+            </div>
+            <div class="header">
+                <p>Thank you for your business!</p>
+            </div>
+        </body>
+        </html>
+    `;
+    
+    receiptWindow.document.write(receiptHTML);
+    receiptWindow.document.close();
+    receiptWindow.print();
+}
+
+// ============= EXPENDITURE MANAGEMENT =============
+
+async function addExpenditure() {
+    const category = document.getElementById('expenditureCategory').value;
+    const amount = parseFloat(document.getElementById('expenditureAmount').value);
+    const description = document.getElementById('expenditureDescription').value;
+    
+    if (!category || isNaN(amount) || !description) {
+        alert('Please fill all fields');
+        return;
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('expenditures')
+            .insert({
+                worker_id: currentUser.id,
+                category: category,
+                amount: amount,
+                description: description
+            });
+        
+        if (error) throw error;
+        
+        document.getElementById('expenditureCategory').value = '';
+        document.getElementById('expenditureAmount').value = '';
+        document.getElementById('expenditureDescription').value = '';
+        
+        await loadExpenditures();
+        alert('Expenditure added successfully');
+    } catch (error) {
+        console.error('Error adding expenditure:', error);
+        alert('Error adding expenditure: ' + error.message);
+    }
+}
+
+async function loadExpenditures() {
+    try {
+        const { data, error } = await supabase
+            .from('expenditures')
+            .select('*')
+            .eq('worker_id', currentUser.id)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        const table = document.getElementById('expenditureTable');
+        while (table.rows.length > 1) {
+            table.deleteRow(1);
+        }
+        
+        data.forEach(expenditure => {
+            const row = table.insertRow();
+            row.insertCell(0).textContent = new Date(expenditure.expenditure_date).toLocaleDateString();
+            row.insertCell(1).textContent = expenditure.category;
+            row.insertCell(2).textContent = expenditure.description;
+            row.insertCell(3).textContent = `Ksh.${parseFloat(expenditure.amount).toFixed(2)}`;
+        });
+    } catch (error) {
+        console.error('Error loading expenditures:', error);
+    }
+}
+
+// ============= SUBMISSION MANAGEMENT =============
+
+async function addSubmission() {
+    const amount = parseFloat(document.getElementById('submissionAmount').value);
+    const description = document.getElementById('submissionDescription').value;
+    
+    if (isNaN(amount) || !description) {
+        alert('Please fill all fields');
+        return;
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('submissions')
+            .insert({
+                worker_id: currentUser.id,
+                amount: amount,
+                description: description,
+                status: 'pending'
+            });
+        
+        if (error) throw error;
+        
+        document.getElementById('submissionAmount').value = '';
+        document.getElementById('submissionDescription').value = '';
+        
+        await loadSubmissions();
+        alert('Submission sent for approval');
+    } catch (error) {
+        console.error('Error adding submission:', error);
+        alert('Error adding submission: ' + error.message);
+    }
+}
+
+async function loadSubmissions() {
+    try {
+        const query = userRole === 'admin' 
+            ? supabase.from('submissions').select('*, profiles(username)').order('created_at', { ascending: false })
+            : supabase.from('submissions').select('*').eq('worker_id', currentUser.id).order('created_at', { ascending: false });
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        const table = document.getElementById('submissionTable');
+        while (table.rows.length > 1) {
+            table.deleteRow(1);
+        }
+        
+        data.forEach(submission => {
+            const row = table.insertRow();
+            row.insertCell(0).textContent = new Date(submission.submission_date).toLocaleDateString();
+            
+            if (userRole === 'admin') {
+                row.insertCell(1).textContent = submission.profiles?.username || 'Unknown';
+            }
+            
+            const offset = userRole === 'admin' ? 1 : 0;
+            row.insertCell(1 + offset).textContent = submission.description;
+            row.insertCell(2 + offset).textContent = `Ksh.${parseFloat(submission.amount).toFixed(2)}`;
+            
+            const statusCell = row.insertCell(3 + offset);
+            statusCell.textContent = submission.status.toUpperCase();
+            statusCell.className = `status-${submission.status}`;
+            
+            if (userRole === 'admin' && submission.status === 'pending') {
+                const actionsCell = row.insertCell(4 + offset);
+                
+                const approveBtn = document.createElement('button');
+                approveBtn.textContent = 'Approve';
+                approveBtn.className = 'success-btn';
+                approveBtn.onclick = () => updateSubmissionStatus(submission.id, 'approved');
+                actionsCell.appendChild(approveBtn);
+                
+                const rejectBtn = document.createElement('button');
+                rejectBtn.textContent = 'Reject';
+                rejectBtn.className = 'danger-btn';
+                rejectBtn.onclick = () => updateSubmissionStatus(submission.id, 'rejected');
+                actionsCell.appendChild(rejectBtn);
+            }
+        });
+    } catch (error) {
+        console.error('Error loading submissions:', error);
+    }
+}
+
+async function updateSubmissionStatus(submissionId, status) {
+    try {
+        const updateData = { 
+            status: status,
+            [`${status}_by`]: currentUser.id,
+            [`${status}_at`]: new Date().toISOString()
+        };
+        
+        const { error } = await supabase
+            .from('submissions')
+            .update(updateData)
+            .eq('id', submissionId);
+        
+        if (error) throw error;
+        
+        await loadSubmissions();
+        alert(`Submission ${status} successfully`);
+    } catch (error) {
+        console.error('Error updating submission:', error);
+        alert('Error updating submission');
+    }
+}
+
+// ============= SHIFT MANAGEMENT =============
+
+async function startShift() {
+    try {
+        // Check if there's already an active shift
+        const { data: existing } = await supabase
+            .from('worker_shifts')
+            .select('*')
+            .eq('worker_id', currentUser.id)
+            .eq('active', true)
+            .single();
+        
+        if (existing) {
+            alert('You already have an active shift');
+            return;
+        }
+        
+        const { error } = await supabase
+            .from('worker_shifts')
+            .insert({
+                worker_id: currentUser.id,
+                start_time: new Date().toISOString(),
+                active: true
+            });
+        
+        if (error) throw error;
+        
+        updateShiftDisplay();
+        alert('Shift started');
+    } catch (error) {
+        console.error('Error starting shift:', error);
+        alert('Error starting shift');
+    }
+}
+
+async function endShift() {
+    try {
+        const { data: activeShift } = await supabase
+            .from('worker_shifts')
+            .select('*')
+            .eq('worker_id', currentUser.id)
+            .eq('active', true)
+            .single();
+        
+        if (!activeShift) {
+            alert('No active shift found');
+            return;
+        }
+        
+        const endTime = new Date();
+        const startTime = new Date(activeShift.start_time);
+        const duration = endTime - startTime;
+        
+        const { error } = await supabase
+            .from('worker_shifts')
+            .update({
+                end_time: endTime.toISOString(),
+                duration: duration,
+                active: false
+            })
+            .eq('id', activeShift.id);
+        
+        if (error) throw error;
+        
+        updateShiftDisplay();
+        alert('Shift ended. Duration: ' + formatDuration(duration));
+    } catch (error) {
+        console.error('Error ending shift:', error);
+        alert('Error ending shift');
+    }
+}
+
+async function updateShiftDisplay() {
+    try {
+        const { data: activeShift } = await supabase
+            .from('worker_shifts')
+            .select('*')
+            .eq('worker_id', currentUser.id)
+            .eq('active', true)
+            .single();
+        
+        const shiftStatus = document.getElementById('shiftStatus');
+        const startBtn = document.getElementById('startShiftBtn');
+        const endBtn = document.getElementById('endShiftBtn');
+        
+        if (activeShift) {
+            const duration = Date.now() - new Date(activeShift.start_time).getTime();
+            shiftStatus.textContent = `Active Shift: ${formatDuration(duration)}`;
+            startBtn.disabled = true;
+            endBtn.disabled = false;
+        } else {
+            shiftStatus.textContent = 'No Active Shift';
+            startBtn.disabled = false;
+            endBtn.disabled = true;
+        }
+    } catch (error) {
+        console.error('Error updating shift display:', error);
+    }
+}
+
+function formatDuration(ms) {
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+}
+
+// ============= REPORTING =============
+
+async function loadDashboard() {
+    try {
+        // Load transactions
+        const { data: transactions } = await supabase
+            .from('transactions')
+            .select('total, created_at');
+        
+        const totalSales = (transactions || []).reduce((sum, t) => sum + parseFloat(t.total), 0);
+        document.getElementById('totalSales').textContent = `Ksh.${totalSales.toFixed(2)}`;
+        
+        // Load expenditures
+        const { data: expenditures } = await supabase
+            .from('expenditures')
+            .select('amount');
+        
+        const totalExpenses = (expenditures || []).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        document.getElementById('totalExpenses').textContent = `Ksh.${totalExpenses.toFixed(2)}`;
+        
+        // Calculate profit
+        const profit = totalSales - totalExpenses;
+        document.getElementById('totalProfit').textContent = `Ksh.${profit.toFixed(2)}`;
+        
+        // Load product count
+        const { data: products } = await supabase
+            .from('products')
+            .select('id');
+        
+        document.getElementById('totalProducts').textContent = (products || []).length;
+        
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+    }
+}
+
+// ============= UTILITY FUNCTIONS =============
+
+function formatCurrency(amount) {
+    return `Ksh.${parseFloat(amount).toFixed(2)}`;
+}
+
+// Initialize shift display on load for workers
+if (userRole === 'worker') {
+    updateShiftDisplay();
+    // Update shift timer every minute
+    setInterval(updateShiftDisplay, 60000);
+}
