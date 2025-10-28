@@ -1,0 +1,3447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOSOM BUDDY NEXUS - POS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="pos-supabase-integration.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #f4f4f4; 
+            margin: 0; 
+            padding: 0;
+            padding-top: 80px;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        header { 
+            background: linear-gradient(to right, #ff8c00, #1e3c72); 
+            color: white; 
+            padding: 15px 20px; 
+            text-align: center;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .header-content h1 {
+            font-size: 1.8rem;
+            margin: 0;
+        }
+        
+        #welcomeUser {
+            font-weight: bold;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+        
+        .container { 
+            padding: 20px; 
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .hidden { 
+            display: none; 
+        }
+        
+        button { 
+            background: #ff8c00; 
+            color: white; 
+            border: none; 
+            padding: 10px 15px; 
+            margin: 5px; 
+            cursor: pointer; 
+            border-radius: 4px; 
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        button:hover { 
+            background: #e67e00; 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 12px 15px; 
+            text-align: left; 
+        }
+        
+        th { 
+            background: #1e3c72; 
+            color: white;
+            font-weight: 600;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        tr:hover {
+            background-color: #f1f3f5;
+        }
+        
+        .statBox { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            width: 100%; 
+            text-align: center; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            margin-bottom: 15px;
+            border-left: 4px solid #ff8c00;
+        }
+        
+        .statBox h3 {
+            margin-bottom: 10px;
+            color: #1e3c72;
+            font-size: 1rem;
+        }
+        
+        .statBox .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #ff8c00;
+        }
+        
+        .low-stock { 
+            color: #e74c3c; 
+            font-weight: bold; 
+        }
+        
+        .out-of-stock { 
+            color: white; 
+            background-color: #e74c3c; 
+            font-weight: bold; 
+            padding: 3px 8px;
+            border-radius: 3px;
+        }
+        
+        #shiftInfo { 
+            background: #e0e0e0; 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            border-radius: 8px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        #searchBar { 
+            width: 100%; 
+            padding: 12px; 
+            margin-bottom: 15px; 
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        #receipt { 
+            background: white; 
+            padding: 20px; 
+            max-width: 300px; 
+            margin: 20px auto; 
+            border: 1px solid #000; 
+            font-family: 'Courier New', monospace; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .modal-overlay {
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(0,0,0,0.5); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            animation: fadeIn 0.3s ease; 
+            z-index: 2000;
+        }
+        
+        .modal {
+            background: white; 
+            padding: 25px; 
+            border-radius: 8px; 
+            width: 450px;
+            max-width: 90%;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3); 
+            animation: scaleIn 0.3s ease;
+        }
+        
+        .modal h3 {
+            margin-bottom: 15px;
+            color: #1e3c72;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        @keyframes fadeIn { 
+            from { opacity: 0; } 
+            to { opacity: 1; } 
+        }
+        
+        @keyframes scaleIn { 
+            from { transform: scale(0.8); } 
+            to { transform: scale(1); } 
+        }
+        
+        @media print {
+            body * { visibility: hidden; }
+            #receipt, #receipt * { visibility: visible; }
+            #receipt { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                max-width: 100%; 
+                border: none; 
+                box-shadow: none; 
+                margin: 0;
+                padding: 15px;
+            }
+            @page {
+                size: auto;
+                margin: 0;
+            }
+        }
+        
+        .danger-btn { 
+            background: #e74c3c; 
+        }
+        
+        .danger-btn:hover { 
+            background: #c0392b; 
+        }
+        
+        .success-btn { 
+            background: #27ae60; 
+        }
+        
+        .success-btn:hover { 
+            background: #219653; 
+        }
+        
+        .warning-btn { 
+            background: #f39c12; 
+        }
+        
+        .warning-btn:hover { 
+            background: #e67e22; 
+        }
+        
+        .info-btn { 
+            background: #3498db; 
+        }
+        
+        .info-btn:hover { 
+            background: #2980b9; 
+        }
+        
+        .receipt-header { 
+            text-align: center; 
+            margin-bottom: 10px; 
+        }
+        
+        .receipt-title { 
+            font-size: 18px; 
+            font-weight: bold; 
+            margin-bottom: 5px; 
+        }
+        
+        .receipt-address { 
+            font-size: 12px; 
+            margin-bottom: 5px; 
+        }
+        
+        .receipt-contact { 
+            font-size: 12px; 
+            margin-bottom: 10px; 
+        }
+        
+        .receipt-divider { 
+            border-top: 1px dashed #000; 
+            margin: 10px 0; 
+        }
+        
+        .receipt-item { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 5px; 
+        }
+        
+        .receipt-total { 
+            font-weight: bold; 
+            border-top: 1px solid #000; 
+            padding-top: 5px; 
+            margin-top: 5px; 
+        }
+        
+        .receipt-footer { 
+            text-align: center; 
+            font-size: 10px; 
+            margin-top: 15px; 
+        }
+        
+        .receipt-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 10px 0; 
+        }
+        
+        .receipt-table th { 
+            border-bottom: 1px dashed #000; 
+            text-align: left; 
+            padding: 3px 0; 
+        }
+        
+        .receipt-table td { 
+            padding: 3px 0; 
+        }
+        
+        .receipt-table .item-desc { 
+            width: 40%; 
+        }
+        
+        .receipt-table .item-price { 
+            width: 20%; 
+            text-align: right; 
+        }
+        
+        .receipt-table .item-qty { 
+            width: 20%; 
+            text-align: center; 
+        }
+        
+        .receipt-table .item-total { 
+            width: 40%; 
+            text-align: right; 
+        }
+        
+        .receipt-totals { 
+            width: 100%; 
+            margin-top: 10px; 
+        }
+        
+        .receipt-totals div { 
+            display: flex; 
+            justify-content: space-between; 
+        }
+        
+        .active-shift { 
+            background-color: #e6ffe6; 
+            border-left: 4px solid #27ae60;
+        }
+
+        /* Login Styles */
+        #loginPage {
+            max-width: 400px;
+            margin: 50px auto;
+            background: white;
+            padding: 40px 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        #loginPage h2 {
+            color: #1e3c72;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        #loginPage input {
+            width: 100%;
+            padding: 14px 15px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        #loginPage input:focus {
+            border-color: #ff8c00;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255,140,0,0.2);
+        }
+        
+        #loginPage button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 20px;
+            background: linear-gradient(to right, #ff8c00, #ff6b00);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        #loginPage button:hover {
+            background: linear-gradient(to right, #ff6b00, #e55a00);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        /* Dashboard Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .dashboard-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .dashboard-card h3 {
+            color: #1e3c72;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* Form styling */
+        input, select {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        input:focus, select:focus {
+            border-color: #ff8c00;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(255,140,0,0.2);
+        }
+        
+        /* Status indicators */
+        .status-active { 
+            color: #27ae60; 
+            font-weight: bold; 
+        }
+        
+        .status-inactive { 
+            color: #e74c3c; 
+            font-weight: bold; 
+        }
+        
+        /* Payment mode styling */
+        .payment-mode {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        
+        .payment-mode label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        /* Submission controls */
+        .submission-controls {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #bbdefb;
+        }
+        
+        /* Discount controls */
+        .discount-controls {
+            background: #e8f5e9;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #c8e6c9;
+        }
+        
+        /* Sale summary */
+        .sale-summary {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        /* Quantity input */
+        .quantity-input {
+            width: 70px;
+            padding: 8px;
+            margin: 0 5px;
+            text-align: center;
+        }
+        
+        /* Submission status */
+        .submission-pending { 
+            color: #f39c12; 
+            font-weight: bold; 
+        }
+        
+        .submission-approved { 
+            color: #27ae60; 
+            font-weight: bold; 
+        }
+        
+        .submission-rejected { 
+            color: #e74c3c; 
+            font-weight: bold; 
+        }
+        
+        /* Reset controls */
+        .reset-controls {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #ffeaa7;
+        }
+        
+        /* Financial reset controls */
+        .financial-reset-controls {
+            background: #ffebee;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #ffcdd2;
+        }
+        
+        /* Receipt management section */
+        .receipt-management {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #d1e7ff;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .payment-mode {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            header {
+                padding: 10px 15px;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .header-content h1 {
+                font-size: 1.5rem;
+            }
+            
+            #shiftInfo {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+            
+            button {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+        
+        /* Tab navigation */
+        .tab-navigation {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            flex-wrap: wrap;
+        }
+        
+        .tab-button {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #555;
+            transition: all 0.3s;
+        }
+        
+        .tab-button.active {
+            background: white;
+            color: #1e3c72;
+            border-bottom: 3px solid #ff8c00;
+        }
+        
+        .tab-button:hover {
+            background: #e9ecef;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Card layout for receipts */
+        .receipt-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-left: 4px solid #ff8c00;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .receipt-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .receipt-card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .receipt-card-id {
+            font-weight: bold;
+            color: #1e3c72;
+        }
+        
+        .receipt-card-date {
+            color: #666;
+        }
+        
+        .receipt-card-details {
+            display: flex;
+            justify-content: space-between;
+            color: #555;
+        }
+        
+        .section-title {
+            color: #1e3c72;
+            margin: 25px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .receipt-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        /* Customer details section */
+        .customer-details {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #d1e7ff;
+        }
+        
+        .customer-details h4 {
+            margin-bottom: 15px;
+            color: #1e3c72;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #1e3c72;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .form-control:focus {
+            border-color: #ff8c00;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(255,140,0,0.2);
+        }
+        
+        /* Logo styling */
+        .logo-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .logo {
+            height: 60px;
+            margin-bottom: 10px;
+        }
+        
+        .company-info {
+            text-align: center;
+        }
+        
+        /* Optional field styling */
+        .optional-field {
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* Stock update styling */
+        .stock-update-controls {
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #ffcc80;
+        }
+        
+        /* Updated receipt header styling */
+        .receipt-header-with-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        .receipt-logo {
+            position: absolute;
+            left: 0;
+            height: 60px;
+        }
+        
+        .receipt-company-info {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <h1>BOSOM BUDDY NEXUS - POS</h1>
+        <div id="welcomeUser"></div>
+    </div>
+</header>
+
+<div class="container" id="loginPage">
+    <h2>Login</h2>
+    <div class="form-group">
+        <input type="email" id="username" placeholder="Email" class="form-control">
+    </div>
+    <div class="form-group">
+        <input type="password" id="password" placeholder="Password" class="form-control">
+    </div>
+    <button onclick="login()">Login</button>
+    <p style="margin-top: 20px; color: #666; font-size: 0.9rem;">
+        Note: Use your email address to login
+    </p>
+</div>
+
+<div class="container hidden" id="adminDashboard">
+    <div class="card-header">
+        <h2>Admin Dashboard</h2>
+        <button onclick="logout()" class="danger-btn">Logout</button>
+    </div>
+
+    <div class="tab-navigation">
+        <button class="tab-button active" onclick="openTab('admin-financial-tab')">Financial Overview</button>
+        <button class="tab-button" onclick="openTab('admin-worker-tab')">Worker Management</button>
+        <button class="tab-button" onclick="openTab('admin-products-tab')">Products & Services</button>
+        <button class="tab-button" onclick="openTab('admin-reports-tab')">Reports & Statements</button>
+        <button class="tab-button" onclick="openTab('admin-receipts-tab')">Receipt Management</button>
+    </div>
+
+    <div id="admin-financial-tab" class="tab-content active">
+        <h3 class="section-title">Financial Overview</h3>
+        <div class="dashboard-grid">
+            <div class="statBox">
+                <h3>Total Sales</h3>
+                <div class="value">Ksh.<span id="totalSales">0.00</span></div>
+            </div>
+            <div class="statBox">
+                <h3>Total Expenditures</h3>
+                <div class="value">Ksh.<span id="totalExpenditures">0.00</span></div>
+            </div>
+            <div class="statBox">
+                <h3>Net Balance</h3>
+                <div class="value">Ksh.<span id="netBalance">0.00</span></div>
+            </div>
+            <div class="statBox">
+                <h3>Pending Submissions</h3>
+                <div class="value"><span id="pendingSubmissions">0</span></div>
+            </div>
+        </div>
+
+        <h3 class="section-title">Worker Submissions for Approval</h3>
+        <table id="submissionTable">
+            <tr><th>Worker</th><th>Amount</th><th>Description</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+        </table>
+    </div>
+
+    <div id="admin-worker-tab" class="tab-content">
+        <h3 class="section-title">Worker Management</h3>
+        <div class="dashboard-card">
+            <h4>Add New Worker</h4>
+            <div class="form-group">
+                <input type="text" id="workerName" placeholder="Worker Username" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="email" id="workerEmail" placeholder="Worker Email" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="password" id="workerPass" placeholder="Password" class="form-control">
+            </div>
+            <button onclick="addWorker()">Add Worker</button>
+            <p style="margin-top: 10px; color: #666; font-size: 0.9rem;">
+                Workers will receive an email to confirm their account
+            </p>
+        </div>
+
+        <h4>Worker List</h4>
+        <table id="workerTable">
+            <tr><th>Username</th><th>Email</th><th>Status</th><th>Sales</th><th>Expenditures</th><th>Balance</th><th>Current Shift</th><th>Last Shift Duration</th><th>Actions</th></tr>
+        </table>
+    </div>
+
+    <div id="admin-products-tab" class="tab-content">
+        <h3 class="section-title">Products</h3>
+        <div class="dashboard-card">
+            <h4>Add New Product</h4>
+            <div class="form-group">
+                <input type="text" id="productName" placeholder="Product Name" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="number" id="productStock" placeholder="Stock" min="0" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="number" id="productPrice" placeholder="Price" min="0" step="0.01" class="form-control">
+            </div>
+            <button onclick="addProduct()">Add Product</button>
+        </div>
+
+        <h4>Product List</h4>
+        <table id="productTable">
+            <tr><th>Name</th><th>Stock</th><th>Price</th><th>Actions</th></tr>
+        </table>
+
+        <h3 class="section-title">Services</h3>
+        <div class="dashboard-card">
+            <h4>Add New Service</h4>
+            <div class="form-group">
+                <input type="text" id="serviceName" placeholder="Service Name" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="number" id="servicePrice" placeholder="Price" min="0" step="0.01" class="form-control">
+            </div>
+            <button onclick="addService()">Add Service</button>
+        </div>
+
+        <h4>Service List</h4>
+        <table id="serviceTable">
+            <tr><th>Name</th><th>Price</th><th>Actions</th></tr>
+        </table>
+    </div>
+
+    <div id="admin-reports-tab" class="tab-content">
+        <h3 class="section-title">View Worker Statements</h3>
+        <div class="dashboard-card">
+            <div class="form-group">
+                <select id="reportWorkerSelect" class="form-control"></select>
+            </div>
+            <div class="form-group">
+                <input type="date" id="reportDate" class="form-control">
+            </div>
+            <button onclick="viewDailyReport()">View Daily Report</button>
+            <button onclick="viewMonthlyReport()">View Monthly Report</button>
+            <button onclick="generatePDFReport()" class="success-btn">Generate PDF Report</button>
+        </div>
+        <div id="reportDisplay" style="margin-top: 20px;"></div>
+        
+        <div class="reset-controls">
+            <h3>Worker Statement Reset</h3>
+            <p>Reset worker statements to clear their sales and expenditure records. This will deduct the worker's balance from the financial overview.</p>
+            <div class="form-group">
+                <select id="resetWorkerSelect" class="form-control">
+                    <option value="">Select Worker</option>
+                </select>
+            </div>
+            <button onclick="resetWorkerStatementWithoutConfirmation()" class="warning-btn">Reset Worker Statement</button>
+        </div>
+        
+        <div class="financial-reset-controls">
+            <h3>Financial Data Management</h3>
+            <p>Warning: These actions will permanently delete financial data and cannot be undone.</p>
+            <button onclick="deleteAllStatements()" class="danger-btn">Delete All Statements</button>
+            <button onclick="resetFinancialOverview()" class="danger-btn">Reset Financial Overview</button>
+        </div>
+    </div>
+
+    <div id="admin-receipts-tab" class="tab-content">
+        <h3 class="section-title">Receipt Management</h3>
+        
+        <div class="receipt-management">
+            <h4>Receipt Actions</h4>
+            <button onclick="searchAndPrintReceipt()" class="info-btn">Search & Print Receipt</button>
+            <button onclick="viewAllReceipts()" class="info-btn">View All Receipts</button>
+            <button onclick="generateReceiptsFromDateRange()" class="success-btn">Generate Receipts by Date Range</button>
+            <button onclick="confirmResetReceiptCounter()" class="danger-btn">Reset Receipt Counter</button>
+        </div>
+        
+        <div class="dashboard-card">
+            <h4>Receipt Counter</h4>
+            <p>Current Receipt Number: RCPT-<span id="currentReceiptCounter"></span></p>
+        </div>
+        
+        <div id="adminReceiptsList"></div>
+    </div>
+</div>
+
+<div class="container hidden" id="workerDashboard">
+    <div class="card-header">
+        <h2>Worker Dashboard</h2>
+        <button onclick="logout()" class="danger-btn">Logout</button>
+    </div>
+    
+    <div id="shiftInfo">
+        <span id="shiftTimer">Shift: Not active</span>
+        <button onclick="startShift()" id="shiftButton">Start Shift</button>
+    </div>
+    
+    <div class="tab-navigation">
+        <button class="tab-button active" onclick="openTab('worker-sales-tab')">Sales</button>
+        <button class="tab-button" onclick="openTab('worker-financial-tab')">My Financials</button>
+        <button class="tab-button" onclick="openTab('worker-receipts-tab')">My Receipts</button>
+        <button class="tab-button" onclick="openTab('worker-reports-tab')">My Reports</button>
+    </div>
+    
+    <div id="worker-sales-tab" class="tab-content active">
+        <div class="dashboard-grid">
+            <div class="statBox">
+                <h3>Today's Sales</h3>
+                <div class="value"><span id="todaySales">0</span></div>
+            </div>
+            <div class="statBox">
+                <h3>Today's Total</h3>
+                <div class="value">Ksh.<span id="todayTotal">0.00</span></div>
+            </div>
+            <div class="statBox">
+                <h3>My Expenditures</h3>
+                <div class="value">Ksh.<span id="myExpenditures">0.00</span></div>
+            </div>
+            <div class="statBox">
+                <h3>My Balance</h3>
+                <div class="value">Ksh.<span id="myBalance">0.00</span></div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <input type="text" id="searchBar" placeholder="Search products or services..." oninput="filterItems()" class="form-control">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h3 id="productsHeader">Available Products</h3>
+                <table id="workerProductTable">
+                    <tr><th>Name</th><th>Stock</th><th>Price</th><th>Action</th></tr>
+                </table>
+            </div>
+            
+            <div>
+                <h3 id="servicesHeader">Available Services</h3>
+                <table id="workerServiceTable">
+                    <tr><th>Name</th><th>Price</th><th>Action</th></tr>
+                </table>
+            </div>
+        </div>
+        
+        <h3 class="section-title">Current Sale</h3>
+        <table id="currentSaleTable" style="width: 100%; margin-bottom: 10px;">
+            <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th></tr>
+        </table>
+        
+        <div class="customer-details">
+            <h4>Customer Details <span class="optional-field">(Optional)</span></h4>
+            <div class="form-group">
+                <label for="customerName">Customer Name</label>
+                <input type="text" id="customerName" placeholder="Enter customer name (optional)" class="form-control">
+            </div>
+            <div class="form-group" id="phoneNumberGroup" style="display: none;">
+                <label for="customerPhone">Phone Number</label>
+                <input type="tel" id="customerPhone" placeholder="Enter phone number (optional)" class="form-control">
+            </div>
+        </div>
+        
+        <div class="discount-controls">
+            <h4>Apply Discount</h4>
+            <div>
+                <label>
+                    <input type="radio" name="discountType" value="fixed" checked> Fixed Amount
+                </label>
+                <label>
+                    <input type="radio" name="discountType" value="percentage"> Percentage
+                </label>
+            </div>
+            <div class="form-group">
+                <input type="number" id="discountValue" placeholder="Discount Value" min="0" step="0.01" class="form-control">
+            </div>
+            <button onclick="applyDiscount()" class="info-btn">Apply Discount</button>
+            <button onclick="removeDiscount()" class="danger-btn">Remove Discount</button>
+        </div>
+        
+        <div class="sale-summary">
+            <div style="text-align: right;">
+                <div>Subtotal: Ksh.<span id="saleSubtotal">0.00</span></div>
+                <div id="discountLine" style="display: none;">Discount: -Ksh.<span id="discountAmount">0.00</span></div>
+                <div><strong>Total: Ksh.<span id="saleTotal">0.00</span></strong></div>
+            </div>
+        </div>
+        
+        <h4>Payment Method</h4>
+        <div class="payment-mode">
+            <label><input type="radio" name="paymentMode" value="cash" checked> Cash</label>
+            <label><input type="radio" name="paymentMode" value="mpesa"> Mpesa</label>
+            <label><input type="radio" name="paymentMode" value="cheque"> Cheque Deposit</label>
+        </div>
+        
+        <button onclick="completeSale()" style="background: #27ae60; padding: 12px 25px; font-size: 1.1rem;">Complete Sale</button>
+    </div>
+    
+    <div id="worker-financial-tab" class="tab-content">
+        <div class="submission-controls">
+            <h3>Submit Amount to Admin</h3>
+            <div class="form-group">
+                <input type="number" id="submissionAmount" placeholder="Amount" min="0" step="0.01" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="text" id="submissionDescription" placeholder="Description" class="form-control">
+            </div>
+            <button onclick="submitToAdmin()" class="info-btn">Submit for Approval</button>
+            <p><small>Submitted amounts will be deducted from your balance after admin approval.</small></p>
+        </div>
+        
+        <div class="stock-update-controls">
+            <h3>Update Product Stock</h3>
+            <div class="form-group">
+                <select id="stockUpdateProduct" class="form-control">
+                    <option value="">Select Product</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <input type="number" id="stockUpdateQuantity" placeholder="New Stock Quantity" min="0" class="form-control">
+            </div>
+            <button onclick="updateProductStock()" class="info-btn">Update Stock</button>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="showApprovedSubmissions" onchange="toggleApprovedSubmissions()">
+                Show Approved Submissions
+            </label>
+        </div>
+        
+        <h3 class="section-title">My Submissions</h3>
+        <table id="mySubmissionsTable">
+            <tr><th>Amount</th><th>Description</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+        </table>
+        
+        <h3 class="section-title">Record Expenditure</h3>
+        <div class="dashboard-card">
+            <div class="form-group">
+                <input type="text" id="expenditureDescription" placeholder="Description" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="number" id="expenditureAmount" placeholder="Amount" min="0" step="0.01" class="form-control">
+            </div>
+            <div class="form-group">
+                <select id="expenditureCategory" class="form-control">
+                    <option value="supplies">Supplies</option>
+                    <option value="transport">Transport</option>
+                    <option value="utilities">Utilities</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <button onclick="recordExpenditure()">Record Expenditure</button>
+        </div>
+        
+        <h3 class="section-title">Add Product</h3>
+        <div class="dashboard-card">
+            <div class="form-group">
+                <input type="text" id="workerProductName" placeholder="Product Name" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="number" id="workerProductStock" placeholder="Stock" min="0" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="number" id="workerProductPrice" placeholder="Price" min="0" step="0.01" class="form-control">
+            </div>
+            <button onclick="workerAddProduct()">Add Product</button>
+        </div>
+        
+        <h3 class="section-title">Add Service</h3>
+        <div class="dashboard-card">
+            <div class="form-group">
+                <input type="text" id="workerServiceName" placeholder="Service Name" class="form-control">
+            </div>
+            <div class="form-group">
+                <input type="number" id="workerServicePrice" placeholder="Price" min="0" step="0.01" class="form-control">
+            </div>
+            <button onclick="workerAddService()">Add Service</button>
+        </div>
+    </div>
+    
+    <div id="worker-receipts-tab" class="tab-content">
+        <h3 class="section-title">My Receipts</h3>
+        
+        <div class="receipt-management">
+            <h4>Receipt Actions</h4>
+            <button onclick="reprintLastReceipt()" class="info-btn">Reprint Last Receipt</button>
+            <button onclick="searchAndPrintReceipt()" class="info-btn">Search & Print Receipt</button>
+            <button onclick="viewMyReceipts()" class="info-btn">View My Receipts</button>
+        </div>
+        
+        <div id="workerReceiptsList"></div>
+    </div>
+    
+    <div id="worker-reports-tab" class="tab-content">
+        <h3 class="section-title">My Statements</h3>
+        <div class="dashboard-card">
+            <div class="form-group">
+                <input type="date" id="workerReportDate" class="form-control">
+            </div>
+            <button onclick="viewWorkerDailyReport()">View Daily Statement</button>
+            <button onclick="viewWorkerMonthlyReport()">View Monthly Statement</button>
+            <button onclick="generateWorkerPDFReport()" class="success-btn">Generate My PDF Statement</button>
+        </div>
+        <div id="workerReportDisplay" style="margin-top: 20px;"></div>
+    </div>
+</div>
+
+<div id="receipt" class="hidden"></div>
+
+<script>
+// Initialize Supabase
+const SUPABASE_URL = 'https://yeqfmfgzqzvadhuoqxsl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcWZtZmd6cXp2YWRodW9xeHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NTM2ODEsImV4cCI6MjA3NzIyOTY4MX0.bYlOUbII9J0Tw8GvOcKIsP5IrNkYitpHFyjlt-ESzIY';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Data storage and initialization
+let currentUser = null;
+let currentUserProfile = null;
+let userRole = null;
+let products = [];
+let services = [];
+let transactions = [];
+let expenditures = [];
+let submissions = [];
+let receiptCounter = 1;
+let currentSale = [];
+let workerShifts = {};
+let currentDiscount = null;
+let showApprovedSubmissions = false;
+
+// Check for existing session on load
+async function initializeApp() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        await loadUserData(session.user);
+    }
+}
+
+// Load user data and role
+async function loadUserData(user) {
+    currentUser = user;
+    
+    // Get user profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+    
+    currentUserProfile = profile;
+    
+    // Get user role
+    const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+    
+    userRole = roleData?.role;
+    
+    if (userRole === 'admin') {
+        await showAdminDashboard();
+    } else if (userRole === 'worker') {
+        await showWorkerDashboard();
+    }
+}
+
+// Initialize on page load
+initializeApp();
+
+// Tab navigation function
+function openTab(tabId) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // Show the selected tab content and activate the button
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+    
+    // Load specific content for certain tabs
+    if (tabId === 'admin-receipts-tab') {
+        loadAdminReceiptsList();
+    } else if (tabId === 'worker-receipts-tab') {
+        loadWorkerReceiptsList();
+    } else if (tabId === 'worker-financial-tab') {
+        loadStockUpdateProducts();
+    }
+}
+
+// Login function
+async function login() {
+    const email = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    if (!email || !password) {
+        alert('Please enter both email and password');
+        return;
+    }
+    
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) throw error;
+        
+        await loadUserData(data.user);
+    } catch (error) {
+        console.error('Login error:', error);
+        alert('Invalid credentials or account disabled: ' + error.message);
+    }
+}
+
+async function logout() {
+    await supabase.auth.signOut();
+    currentUser = null;
+    currentUserProfile = null;
+    userRole = null;
+    document.getElementById('loginPage').classList.remove('hidden');
+    document.getElementById('adminDashboard').classList.add('hidden');
+    document.getElementById('workerDashboard').classList.add('hidden');
+}
+
+async function showAdminDashboard() {
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('adminDashboard').classList.remove('hidden');
+    document.getElementById('workerDashboard').classList.add('hidden');
+    document.getElementById('welcomeUser').textContent = `Welcome, ${currentUserProfile?.username || currentUser.email}`;
+    
+    await loadWorkers();
+    await loadProducts();
+    await loadServices();
+    await loadWorkerSelect();
+    await loadResetWorkerSelect();
+    await loadSubmissions();
+    await updateReceiptCounter();
+    await updateFinancialOverview();
+    
+    // Initialize the receipts list if on receipts tab
+    if (document.getElementById('admin-receipts-tab').classList.contains('active')) {
+        await loadAdminReceiptsList();
+    }
+}
+
+async function showWorkerDashboard() {
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('adminDashboard').classList.add('hidden');
+    document.getElementById('workerDashboard').classList.remove('hidden');
+    document.getElementById('welcomeUser').textContent = `Welcome, ${currentUserProfile?.username || currentUser.email}`;
+    
+    await updateShiftDisplay();
+    await loadWorkerProducts();
+    await loadWorkerServices();
+    await loadMySubmissions();
+    updateSaleTotal();
+    await updateWorkerStats();
+    await loadStockUpdateProducts();
+    
+    // Initialize customer name field listener
+    document.getElementById('customerName').addEventListener('input', function() {
+        const phoneGroup = document.getElementById('phoneNumberGroup');
+        if (this.value.trim() !== '') {
+            phoneGroup.style.display = 'block';
+        } else {
+            phoneGroup.style.display = 'none';
+            document.getElementById('customerPhone').value = '';
+        }
+    });
+    
+    // Initialize the receipts list if on receipts tab
+    if (document.getElementById('worker-receipts-tab').classList.contains('active')) {
+        await loadWorkerReceiptsList();
+    }
+}
+
+// NEW: Load products for stock update dropdown
+function loadStockUpdateProducts() {
+    const select = document.getElementById('stockUpdateProduct');
+    select.innerHTML = '<option value="">Select Product</option>';
+    
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.id;
+        option.textContent = `${product.name} (Current: ${product.stock})`;
+        select.appendChild(option);
+    });
+}
+
+// NEW: Update product stock
+function updateProductStock() {
+    const productId = parseInt(document.getElementById('stockUpdateProduct').value);
+    const newStock = parseInt(document.getElementById('stockUpdateQuantity').value);
+    
+    if (!productId || isNaN(newStock) || newStock < 0) {
+        alert('Please select a product and enter a valid stock quantity');
+        return;
+    }
+    
+    const product = products.find(p => p.id === productId);
+    if (!product) {
+        alert('Product not found');
+        return;
+    }
+    
+    product.stock = newStock;
+    localStorage.setItem('products', JSON.stringify(products));
+    
+    // Refresh displays
+    loadWorkerProducts();
+    loadStockUpdateProducts();
+    
+    document.getElementById('stockUpdateQuantity').value = '';
+    
+    alert(`Stock for ${product.name} updated to ${newStock}`);
+}
+
+// NEW: Toggle approved submissions visibility
+function toggleApprovedSubmissions() {
+    showApprovedSubmissions = document.getElementById('showApprovedSubmissions').checked;
+    loadMySubmissions();
+}
+
+// Customer Details Functions
+function getCustomerDetails() {
+    const customerName = document.getElementById('customerName').value.trim();
+    const customerPhone = document.getElementById('customerPhone').value.trim();
+    
+    if (customerName === '') {
+        return null;
+    }
+    
+    return {
+        name: customerName,
+        phone: customerPhone || 'Not provided'
+    };
+}
+
+function resetCustomerDetails() {
+    document.getElementById('customerName').value = '';
+    document.getElementById('customerPhone').value = '';
+    document.getElementById('phoneNumberGroup').style.display = 'none';
+}
+
+// RECEIPT GENERATION FROM STATEMENTS FUNCTIONS
+
+// Generate receipt from existing transaction
+function generateReceiptFromStatement(receiptNumber) {
+    // Find the transaction by receipt number
+    const transaction = transactions.find(t => t.receiptNumber === receiptNumber);
+    
+    if (!transaction) {
+        alert('Transaction not found for receipt number: ' + receiptNumber);
+        return;
+    }
+    
+    // Generate the receipt
+    generateReceipt(transaction);
+}
+
+// Reprint the last receipt
+function reprintLastReceipt() {
+    if (transactions.length === 0) {
+        alert('No transactions found');
+        return;
+    }
+    
+    // Get the most recent transaction
+    const lastTransaction = transactions[transactions.length - 1];
+    generateReceipt(lastTransaction);
+}
+
+// Search and print receipt by receipt number
+function searchAndPrintReceipt() {
+    const receiptNumber = prompt('Enter receipt number to reprint (e.g., RCPT-0001):');
+    if (receiptNumber) {
+        generateReceiptFromStatement(receiptNumber);
+    }
+}
+
+// View worker's own receipts
+function viewMyReceipts() {
+    const myTransactions = transactions.filter(t => t.worker === currentUser.username);
+    
+    if (myTransactions.length === 0) {
+        alert('No receipts found for your account');
+        return;
+    }
+    
+    let receiptList = 'My Receipts:\n\n';
+    myTransactions.forEach(transaction => {
+        receiptList += `${transaction.receiptNumber} - ${new Date(transaction.timestamp).toLocaleString()} - Ksh.${transaction.total.toFixed(2)}\n`;
+    });
+    
+    receiptList += '\nEnter receipt number to reprint:';
+    const receiptNumber = prompt(receiptList);
+    
+    if (receiptNumber) {
+        generateReceiptFromStatement(receiptNumber);
+    }
+}
+
+// View all receipts (admin only)
+function viewAllReceipts() {
+    if (transactions.length === 0) {
+        alert('No receipts found in system');
+        return;
+    }
+    
+    let receiptList = 'All Receipts:\n\n';
+    transactions.forEach(transaction => {
+        receiptList += `${transaction.receiptNumber} - ${transaction.worker} - ${new Date(transaction.timestamp).toLocaleString()} - Ksh.${transaction.total.toFixed(2)}\n`;
+    });
+    
+    receiptList += '\nEnter receipt number to reprint:';
+    const receiptNumber = prompt(receiptList);
+    
+    if (receiptNumber) {
+        generateReceiptFromStatement(receiptNumber);
+    }
+}
+
+// Generate receipts from date range
+function generateReceiptsFromDateRange() {
+    const startDate = prompt('Enter start date (YYYY-MM-DD):');
+    const endDate = prompt('Enter end date (YYYY-MM-DD):');
+    
+    if (!startDate || !endDate) return;
+    
+    const filteredTransactions = transactions.filter(t => {
+        return t.date >= startDate && t.date <= endDate;
+    });
+    
+    if (filteredTransactions.length === 0) {
+        alert('No transactions found in the specified date range');
+        return;
+    }
+    
+    // Generate receipts for each transaction in the range
+    filteredTransactions.forEach((transaction, index) => {
+        setTimeout(() => {
+            generateReceipt(transaction);
+        }, index * 1000); // Stagger receipts by 1 second
+    });
+    
+    alert(`Generating ${filteredTransactions.length} receipts from ${startDate} to ${endDate}`);
+}
+
+// Load receipts list for admin
+function loadAdminReceiptsList() {
+    const container = document.getElementById('adminReceiptsList');
+    
+    if (transactions.length === 0) {
+        container.innerHTML = '<p>No receipts found in the system.</p>';
+        return;
+    }
+    
+    let html = '<h4>Recent Receipts</h4>';
+    
+    // Show last 10 receipts
+    const recentTransactions = transactions.slice(-10).reverse();
+    
+    recentTransactions.forEach(transaction => {
+        html += `
+            <div class="receipt-card" onclick="generateReceiptFromStatement('${transaction.receiptNumber}')">
+                <div class="receipt-card-header">
+                    <div class="receipt-card-id">${transaction.receiptNumber}</div>
+                    <div class="receipt-card-date">${new Date(transaction.timestamp).toLocaleDateString()}</div>
+                </div>
+                <div class="receipt-card-details">
+                    <div>Worker: ${transaction.worker}</div>
+                    <div>Ksh.${transaction.total.toFixed(2)}</div>
+                </div>
+                <div class="receipt-actions">
+                    <button onclick="event.stopPropagation(); generateReceiptFromStatement('${transaction.receiptNumber}')" class="info-btn">Print</button>
+                    <button onclick="event.stopPropagation(); viewReceiptDetails('${transaction.receiptNumber}')" class="info-btn">Details</button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// Load receipts list for worker
+function loadWorkerReceiptsList() {
+    const container = document.getElementById('workerReceiptsList');
+    const myTransactions = transactions.filter(t => t.worker === currentUser.username);
+    
+    if (myTransactions.length === 0) {
+        container.innerHTML = '<p>No receipts found for your account.</p>';
+        return;
+    }
+    
+    let html = '<h4>My Recent Receipts</h4>';
+    
+    // Show last 10 receipts
+    const recentTransactions = myTransactions.slice(-10).reverse();
+    
+    recentTransactions.forEach(transaction => {
+        html += `
+            <div class="receipt-card" onclick="generateReceiptFromStatement('${transaction.receiptNumber}')">
+                <div class="receipt-card-header">
+                    <div class="receipt-card-id">${transaction.receiptNumber}</div>
+                    <div class="receipt-card-date">${new Date(transaction.timestamp).toLocaleDateString()}</div>
+                </div>
+                <div class="receipt-card-details">
+                    <div>Total: Ksh.${transaction.total.toFixed(2)}</div>
+                    <div>Payment: ${transaction.paymentMode}</div>
+                </div>
+                <div class="receipt-actions">
+                    <button onclick="event.stopPropagation(); generateReceiptFromStatement('${transaction.receiptNumber}')" class="info-btn">Print</button>
+                    <button onclick="event.stopPropagation(); viewReceiptDetails('${transaction.receiptNumber}')" class="info-btn">Details</button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// View receipt details without printing
+function viewReceiptDetails(receiptNumber) {
+    const transaction = transactions.find(t => t.receiptNumber === receiptNumber);
+    
+    if (!transaction) {
+        alert('Transaction not found');
+        return;
+    }
+    
+    let details = `Receipt Details:\n\n`;
+    details += `Receipt Number: ${transaction.receiptNumber}\n`;
+    details += `Date: ${new Date(transaction.timestamp).toLocaleString()}\n`;
+    details += `Worker: ${transaction.worker}\n`;
+    details += `Payment Method: ${transaction.paymentMode}\n`;
+    
+    if (transaction.customer) {
+        details += `Customer: ${transaction.customer.name}\n`;
+        details += `Phone: ${transaction.customer.phone}\n`;
+    }
+    
+    details += `\nItems:\n`;
+    
+    transaction.items.forEach(item => {
+        details += `- ${item.name} (Qty: ${item.quantity}) - Ksh.${(item.price * item.quantity).toFixed(2)}\n`;
+    });
+    
+    details += `\nSubtotal: Ksh.${transaction.subtotal.toFixed(2)}\n`;
+    
+    if (transaction.discount) {
+        details += `Discount: -Ksh.${transaction.discountAmount.toFixed(2)}\n`;
+    }
+    
+    details += `Total: Ksh.${transaction.total.toFixed(2)}`;
+    
+    alert(details);
+}
+
+// Worker Statement Reset Functions
+function loadResetWorkerSelect() {
+    const select = document.getElementById('resetWorkerSelect');
+    select.innerHTML = '<option value="">Select Worker</option>';
+    
+    const workers = users.filter(u => u.role === 'worker');
+    workers.forEach(worker => {
+        const option = document.createElement('option');
+        option.value = worker.username;
+        option.textContent = worker.username;
+        select.appendChild(option);
+    });
+}
+
+function resetWorkerStatementWithoutConfirmation() {
+    const workerUsername = document.getElementById('resetWorkerSelect').value;
+    
+    if (!workerUsername) {
+        alert('Please select a worker');
+        return;
+    }
+    
+    const worker = users.find(u => u.username === workerUsername);
+    if (!worker) {
+        alert('Worker not found');
+        return;
+    }
+    
+    const workerBalance = calculateWorkerBalance(workerUsername);
+    
+    if (workerBalance <= 0) {
+        alert('This worker has no balance to reset');
+        return;
+    }
+    
+    resetWorkerStatement(workerUsername);
+}
+
+function resetWorkerStatement(workerUsername) {
+    // Calculate the worker's balance before reset
+    const workerBalance = calculateWorkerBalance(workerUsername);
+    
+    // Remove transactions for this worker
+    transactions = transactions.filter(t => t.worker !== workerUsername);
+    
+    // Remove expenditures for this worker
+    expenditures = expenditures.filter(e => e.worker !== workerUsername);
+    
+    // Record the reset as an admin expenditure
+    expenditures.push({
+        id: Date.now(),
+        description: `Statement Reset for ${workerUsername}`,
+        amount: workerBalance,
+        category: 'statement_reset',
+        worker: 'admin',
+        timestamp: Date.now(),
+        date: new Date().toISOString().split('T')[0]
+    });
+    
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+    localStorage.setItem('expenditures', JSON.stringify(expenditures));
+    
+    updateFinancialOverview();
+    loadWorkers();
+    loadResetWorkerSelect();
+    
+    alert(`Statement for worker "${workerUsername}" has been reset. Ksh.${workerBalance.toFixed(2)} has been deducted from the financial overview.`);
+}
+
+// Financial Data Management Functions
+function deleteAllStatements() {
+    if (confirm('WARNING: This will permanently delete ALL transactions and expenditures. This action cannot be undone. Are you sure?')) {
+        transactions = [];
+        expenditures = [];
+        submissions = [];
+        
+        localStorage.setItem('transactions', JSON.stringify(transactions));
+        localStorage.setItem('expenditures', JSON.stringify(expenditures));
+        localStorage.setItem('submissions', JSON.stringify(submissions));
+        
+        updateFinancialOverview();
+        loadSubmissions();
+        loadWorkers();
+        
+        alert('All statements have been deleted successfully.');
+    }
+}
+
+function resetFinancialOverview() {
+    if (confirm('WARNING: This will reset ALL financial data including transactions, expenditures, and submissions. This action cannot be undone. Are you sure?')) {
+        transactions = [];
+        expenditures = [];
+        submissions = [];
+        receiptCounter = 1;
+        
+        localStorage.setItem('transactions', JSON.stringify(transactions));
+        localStorage.setItem('expenditures', JSON.stringify(expenditures));
+        localStorage.setItem('submissions', JSON.stringify(submissions));
+        localStorage.setItem('receiptCounter', receiptCounter.toString());
+        
+        updateFinancialOverview();
+        loadSubmissions();
+        loadWorkers();
+        updateReceiptCounter();
+        
+        alert('Financial overview has been reset successfully.');
+    }
+}
+
+// Submission Functions
+function submitToAdmin() {
+    const amount = parseFloat(document.getElementById('submissionAmount').value);
+    const description = document.getElementById('submissionDescription').value;
+    
+    if (isNaN(amount) || amount <= 0 || !description) {
+        alert('Please enter a valid amount and description');
+        return;
+    }
+    
+    // Check if worker has enough balance
+    const workerBalance = calculateWorkerBalance(currentUser.username);
+    if (amount > workerBalance) {
+        alert(`Insufficient balance. Your current balance is Ksh.${workerBalance.toFixed(2)}`);
+        return;
+    }
+    
+    const submission = {
+        id: Date.now(),
+        worker: currentUser.username,
+        amount: amount,
+        description: description,
+        status: 'pending',
+        timestamp: Date.now(),
+        date: new Date().toISOString().split('T')[0]
+    };
+    
+    submissions.push(submission);
+    localStorage.setItem('submissions', JSON.stringify(submissions));
+    
+    document.getElementById('submissionAmount').value = '';
+    document.getElementById('submissionDescription').value = '';
+    
+    loadMySubmissions();
+    updateWorkerStats();
+    
+    alert('Amount submitted for admin approval');
+}
+
+function loadSubmissions() {
+    const table = document.getElementById('submissionTable');
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    const pendingSubmissions = submissions.filter(s => s.status === 'pending');
+    document.getElementById('pendingSubmissions').textContent = pendingSubmissions.length;
+    
+    pendingSubmissions.forEach(submission => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = submission.worker;
+        row.insertCell(1).textContent = `Ksh.${submission.amount.toFixed(2)}`;
+        row.insertCell(2).textContent = submission.description;
+        row.insertCell(3).textContent = new Date(submission.timestamp).toLocaleString();
+        
+        const statusCell = row.insertCell(4);
+        statusCell.innerHTML = '<span class="submission-pending">Pending</span>';
+        
+        const actionsCell = row.insertCell(5);
+        
+        const approveBtn = document.createElement('button');
+        approveBtn.textContent = 'Approve';
+        approveBtn.className = 'success-btn';
+        approveBtn.onclick = () => approveSubmission(submission.id);
+        actionsCell.appendChild(approveBtn);
+        
+        const rejectBtn = document.createElement('button');
+        rejectBtn.textContent = 'Reject';
+        rejectBtn.className = 'danger-btn';
+        rejectBtn.onclick = () => rejectSubmission(submission.id);
+        actionsCell.appendChild(rejectBtn);
+    });
+}
+
+function loadMySubmissions() {
+    const table = document.getElementById('mySubmissionsTable');
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    // Filter submissions based on status and visibility settings
+    const mySubmissions = submissions.filter(s => 
+        s.worker === currentUser.username && 
+        (s.status !== 'approved' || showApprovedSubmissions) &&
+        !s.hidden
+    );
+    
+    mySubmissions.forEach(submission => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = `Ksh.${submission.amount.toFixed(2)}`;
+        row.insertCell(1).textContent = submission.description;
+        row.insertCell(2).textContent = new Date(submission.timestamp).toLocaleString();
+        
+        const statusCell = row.insertCell(3);
+        if (submission.status === 'pending') {
+            statusCell.innerHTML = '<span class="submission-pending">Pending</span>';
+        } else if (submission.status === 'approved') {
+            statusCell.innerHTML = '<span class="submission-approved">Approved</span>';
+        } else {
+            statusCell.innerHTML = '<span class="submission-rejected">Rejected</span>';
+        }
+        
+        // Add actions based on submission status
+        const actionsCell = row.insertCell(4);
+        
+        if (submission.status === 'rejected') {
+            // For rejected submissions: delete, edit, and resubmit options
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.className = 'danger-btn';
+            deleteBtn.onclick = () => deleteSubmission(submission.id);
+            actionsCell.appendChild(deleteBtn);
+            
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Edit';
+            editBtn.className = 'info-btn';
+            editBtn.onclick = () => editSubmission(submission.id);
+            actionsCell.appendChild(editBtn);
+            
+            const resubmitBtn = document.createElement('button');
+            resubmitBtn.textContent = 'Resubmit';
+            resubmitBtn.className = 'success-btn';
+            resubmitBtn.onclick = () => resubmitSubmission(submission.id);
+            actionsCell.appendChild(resubmitBtn);
+        } else if (submission.status === 'approved') {
+            // For approved submissions: hide or delete options
+            const hideBtn = document.createElement('button');
+            hideBtn.textContent = 'Hide';
+            hideBtn.className = 'warning-btn';
+            hideBtn.onclick = () => hideSubmission(submission.id);
+            actionsCell.appendChild(hideBtn);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.className = 'danger-btn';
+            deleteBtn.onclick = () => deleteSubmission(submission.id);
+            actionsCell.appendChild(deleteBtn);
+        } else {
+            // For pending submissions: no actions needed
+            actionsCell.textContent = 'No actions available';
+        }
+    });
+}
+
+// New functions for submission management on worker dashboard
+function deleteSubmission(submissionId) {
+    if (confirm('Are you sure you want to delete this submission?')) {
+        submissions = submissions.filter(s => s.id !== submissionId);
+        localStorage.setItem('submissions', JSON.stringify(submissions));
+        loadMySubmissions();
+        alert('Submission deleted successfully');
+    }
+}
+
+function editSubmission(submissionId) {
+    const submission = submissions.find(s => s.id === submissionId);
+    if (!submission) return;
+    
+    const newAmount = prompt('Enter new amount:', submission.amount);
+    if (newAmount === null) return;
+    
+    const newDescription = prompt('Enter new description:', submission.description);
+    if (newDescription === null) return;
+    
+    submission.amount = parseFloat(newAmount);
+    submission.description = newDescription;
+    submission.status = 'pending'; // Reset status to pending after edit
+    submission.timestamp = Date.now();
+    
+    localStorage.setItem('submissions', JSON.stringify(submissions));
+    loadMySubmissions();
+    alert('Submission updated successfully');
+}
+
+function resubmitSubmission(submissionId) {
+    const submission = submissions.find(s => s.id === submissionId);
+    if (!submission) return;
+    
+    submission.status = 'pending';
+    submission.timestamp = Date.now();
+    
+    localStorage.setItem('submissions', JSON.stringify(submissions));
+    loadMySubmissions();
+    alert('Submission resubmitted for approval');
+}
+
+function hideSubmission(submissionId) {
+    const submission = submissions.find(s => s.id === submissionId);
+    if (!submission) return;
+    
+    submission.hidden = true;
+    
+    localStorage.setItem('submissions', JSON.stringify(submissions));
+    loadMySubmissions();
+    alert('Submission hidden from view. It will no longer appear in your submissions list.');
+}
+
+function approveSubmission(submissionId) {
+    const submission = submissions.find(s => s.id === submissionId);
+    if (!submission) return;
+    
+    submission.status = 'approved';
+    submission.approvedAt = Date.now();
+    submission.approvedBy = currentUser.username;
+    
+    // Record as expenditure
+    expenditures.push({
+        id: Date.now(),
+        description: `Admin Submission: ${submission.description}`,
+        amount: submission.amount,
+        category: 'admin_submission',
+        worker: submission.worker,
+        timestamp: Date.now(),
+        date: new Date().toISOString().split('T')[0]
+    });
+    
+    localStorage.setItem('submissions', JSON.stringify(submissions));
+    localStorage.setItem('expenditures', JSON.stringify(expenditures));
+    
+    loadSubmissions();
+    updateFinancialOverview();
+    
+    alert(`Submission of Ksh.${submission.amount.toFixed(2)} from ${submission.worker} has been approved`);
+}
+
+function rejectSubmission(submissionId) {
+    const submission = submissions.find(s => s.id === submissionId);
+    if (!submission) return;
+    
+    submission.status = 'rejected';
+    submission.rejectedAt = Date.now();
+    submission.rejectedBy = currentUser.username;
+    
+    localStorage.setItem('submissions', JSON.stringify(submissions));
+    
+    loadSubmissions();
+    
+    alert(`Submission of Ksh.${submission.amount.toFixed(2)} from ${submission.worker} has been rejected`);
+}
+
+// Worker Management Functions
+function addWorker() {
+    const username = document.getElementById('workerName').value;
+    const password = document.getElementById('workerPass').value;
+    
+    if (!username || !password) {
+        alert('Please fill all fields');
+        return;
+    }
+    
+    if (users.find(u => u.username === username)) {
+        alert('Username already exists');
+        return;
+    }
+    
+    users.push({
+        username,
+        password,
+        role: 'worker',
+        active: true
+    });
+    
+    localStorage.setItem('users', JSON.stringify(users));
+    document.getElementById('workerName').value = '';
+    document.getElementById('workerPass').value = '';
+    loadWorkers();
+}
+
+function loadWorkers() {
+    const table = document.getElementById('workerTable');
+    // Clear existing rows except header
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    const workers = users.filter(u => u.role === 'worker');
+    workers.forEach(worker => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = worker.username;
+        
+        const statusCell = row.insertCell(1);
+        if (worker.active) {
+            statusCell.innerHTML = '<span class="status-active">Active</span>';
+        } else {
+            statusCell.innerHTML = '<span class="status-inactive">Inactive</span>';
+        }
+        
+        // Calculate worker financials
+        const workerBalance = calculateWorkerBalance(worker.username);
+        
+        const workerTransactions = transactions.filter(t => t.worker === worker.username);
+        const workerExpenditures = expenditures.filter(e => e.worker === worker.username);
+        
+        const workerSales = workerTransactions.reduce((sum, t) => sum + t.total, 0);
+        const workerExpenses = workerExpenditures.reduce((sum, e) => sum + e.amount, 0);
+        
+        row.insertCell(2).textContent = `Ksh.${workerSales.toFixed(2)}`;
+        row.insertCell(3).textContent = `Ksh.${workerExpenses.toFixed(2)}`;
+        row.insertCell(4).textContent = `Ksh.${workerBalance.toFixed(2)}`;
+        
+        const shiftInfo = workerShifts[worker.username] || {};
+        const currentShiftCell = row.insertCell(5);
+        
+        // Calculate shift duration even if worker is logged out
+        if (shiftInfo.active) {
+            const shiftDuration = Date.now() - shiftInfo.startTime;
+            currentShiftCell.textContent = formatDuration(shiftDuration);
+        } else {
+            currentShiftCell.textContent = 'Not active';
+        }
+        
+        const lastShiftCell = row.insertCell(6);
+        lastShiftCell.textContent = shiftInfo.lastShiftDuration ? 
+            formatDuration(shiftInfo.lastShiftDuration) : 'N/A';
+        
+        const actionsCell = row.insertCell(7);
+        
+        const toggleBtn = document.createElement('button');
+        toggleBtn.textContent = worker.active ? 'Disable' : 'Enable';
+        toggleBtn.className = worker.active ? 'danger-btn' : 'success-btn';
+        toggleBtn.onclick = () => toggleWorkerStatus(worker.username);
+        actionsCell.appendChild(toggleBtn);
+        
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = () => editWorker(worker.username);
+        actionsCell.appendChild(editBtn);
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.className = 'danger-btn';
+        deleteBtn.onclick = () => deleteWorker(worker.username);
+        actionsCell.appendChild(deleteBtn);
+    });
+}
+
+function calculateWorkerBalance(username) {
+    const workerTransactions = transactions.filter(t => t.worker === username);
+    const workerExpenditures = expenditures.filter(e => e.worker === username);
+    
+    const workerSales = workerTransactions.reduce((sum, t) => sum + t.total, 0);
+    const workerExpenses = workerExpenditures.reduce((sum, e) => sum + e.amount, 0);
+    
+    return workerSales - workerExpenses;
+}
+
+function toggleWorkerStatus(username) {
+    const worker = users.find(u => u.username === username);
+    if (worker) {
+        worker.active = !worker.active;
+        localStorage.setItem('users', JSON.stringify(users));
+        loadWorkers();
+    }
+}
+
+function editWorker(username) {
+    const worker = users.find(u => u.username === username);
+    if (!worker) return;
+    
+    const newPassword = prompt('Enter new password for ' + username + ' (leave blank to keep current):');
+    if (newPassword === null) return;
+    
+    if (newPassword) {
+        worker.password = newPassword;
+        localStorage.setItem('users', JSON.stringify(users));
+        alert('Password updated successfully');
+    }
+}
+
+function deleteWorker(username) {
+    if (confirm(`Are you sure you want to delete worker ${username}?`)) {
+        users = users.filter(u => u.username !== username);
+        localStorage.setItem('users', JSON.stringify(users));
+        loadWorkers();
+    }
+}
+
+// Product Management Functions
+function addProduct() {
+    const name = document.getElementById('productName').value;
+    const stock = parseInt(document.getElementById('productStock').value);
+    const price = parseFloat(document.getElementById('productPrice').value);
+    
+    if (!name || isNaN(stock) || isNaN(price)) {
+        alert('Please fill all fields with valid values');
+        return;
+    }
+    
+    products.push({
+        id: Date.now(),
+        name,
+        stock,
+        price
+    });
+    
+    localStorage.setItem('products', JSON.stringify(products));
+    document.getElementById('productName').value = '';
+    document.getElementById('productStock').value = '';
+    document.getElementById('productPrice').value = '';
+    loadProducts();
+}
+
+function loadProducts() {
+    const table = document.getElementById('productTable');
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    products.forEach(product => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = product.name;
+        
+        const stockCell = row.insertCell(1);
+        stockCell.textContent = product.stock;
+        if (product.stock === 0) {
+            stockCell.className = 'out-of-stock';
+        } else if (product.stock < 5) {
+            stockCell.className = 'low-stock';
+        }
+        
+        row.insertCell(2).textContent = `Ksh.${product.price.toFixed(2)}`;
+        
+        const actionsCell = row.insertCell(3);
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = () => editProduct(product.id);
+        actionsCell.appendChild(editBtn);
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.className = 'danger-btn';
+        deleteBtn.onclick = () => deleteProduct(product.id);
+        actionsCell.appendChild(deleteBtn);
+    });
+}
+
+function editProduct(id) {
+    const product = products.find(p => p.id === id);
+    if (!product) return;
+    
+    const newName = prompt('Enter new product name:', product.name);
+    if (newName === null) return;
+    
+    const newStock = prompt('Enter new stock:', product.stock);
+    if (newStock === null) return;
+    
+    const newPrice = prompt('Enter new price:', product.price);
+    if (newPrice === null) return;
+    
+    product.name = newName;
+    product.stock = parseInt(newStock);
+    product.price = parseFloat(newPrice);
+    
+    localStorage.setItem('products', JSON.stringify(products));
+    loadProducts();
+    if (currentUser.role === 'worker') {
+        loadWorkerProducts();
+    }
+}
+
+function deleteProduct(id) {
+    if (confirm('Are you sure you want to delete this product?')) {
+        products = products.filter(p => p.id !== id);
+        localStorage.setItem('products', JSON.stringify(products));
+        loadProducts();
+        if (currentUser.role === 'worker') {
+            loadWorkerProducts();
+        }
+    }
+}
+
+// Service Management Functions
+function addService() {
+    const name = document.getElementById('serviceName').value;
+    const price = parseFloat(document.getElementById('servicePrice').value);
+    
+    if (!name || isNaN(price)) {
+        alert('Please fill all fields with valid values');
+        return;
+    }
+    
+    services.push({
+        id: Date.now(),
+        name,
+        price
+    });
+    
+    localStorage.setItem('services', JSON.stringify(services));
+    document.getElementById('serviceName').value = '';
+    document.getElementById('servicePrice').value = '';
+    loadServices();
+}
+
+function loadServices() {
+    const table = document.getElementById('serviceTable');
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    services.forEach(service => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = service.name;
+        row.insertCell(1).textContent = `Ksh.${service.price.toFixed(2)}`;
+        
+        const actionsCell = row.insertCell(2);
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = () => editService(service.id);
+        actionsCell.appendChild(editBtn);
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.className = 'danger-btn';
+        deleteBtn.onclick = () => deleteService(service.id);
+        actionsCell.appendChild(deleteBtn);
+    });
+}
+
+function editService(id) {
+    const service = services.find(s => s.id === id);
+    if (!service) return;
+    
+    const newName = prompt('Enter new service name:', service.name);
+    if (newName === null) return;
+    
+    const newPrice = prompt('Enter new price:', service.price);
+    if (newPrice === null) return;
+    
+    service.name = newName;
+    service.price = parseFloat(newPrice);
+    
+    localStorage.setItem('services', JSON.stringify(services));
+    loadServices();
+    if (currentUser.role === 'worker') {
+        loadWorkerServices();
+    }
+}
+
+function deleteService(id) {
+    if (confirm('Are you sure you want to delete this service?')) {
+        services = services.filter(s => s.id !== id);
+        localStorage.setItem('services', JSON.stringify(services));
+        loadServices();
+        if (currentUser.role === 'worker') {
+            loadWorkerServices();
+        }
+    }
+}
+
+// Worker Dashboard Functions
+function startShift() {
+    if (!workerShifts[currentUser.username]) {
+        workerShifts[currentUser.username] = {};
+    }
+    
+    workerShifts[currentUser.username].active = true;
+    workerShifts[currentUser.username].startTime = Date.now();
+    localStorage.setItem('workerShifts', JSON.stringify(workerShifts));
+    
+    updateShiftDisplay();
+    alert('Shift started successfully. Your shift will continue even if you log out.');
+}
+
+function endShift() {
+    if (workerShifts[currentUser.username] && workerShifts[currentUser.username].active) {
+        const startTime = workerShifts[currentUser.username].startTime;
+        const duration = Date.now() - startTime;
+        
+        workerShifts[currentUser.username].active = false;
+        workerShifts[currentUser.username].lastShiftDuration = duration;
+        localStorage.setItem('workerShifts', JSON.stringify(workerShifts));
+        
+        updateShiftDisplay();
+        alert('Shift ended successfully. Duration: ' + formatDuration(duration));
+    }
+}
+
+function updateShiftDisplay() {
+    const shiftInfo = workerShifts[currentUser.username] || {};
+    const shiftTimer = document.getElementById('shiftTimer');
+    const shiftButton = document.getElementById('shiftButton');
+    
+    if (shiftInfo.active) {
+        // Calculate shift duration even if worker was logged out
+        const shiftDuration = Date.now() - shiftInfo.startTime;
+        shiftTimer.textContent = `Shift Active: ${formatDuration(shiftDuration)}`;
+        shiftButton.textContent = 'End Shift';
+        shiftButton.onclick = endShift;
+        document.getElementById('shiftInfo').classList.add('active-shift');
+    } else {
+        shiftTimer.textContent = 'Shift: Not active';
+        shiftButton.textContent = 'Start Shift';
+        shiftButton.onclick = startShift;
+        document.getElementById('shiftInfo').classList.remove('active-shift');
+    }
+}
+
+function formatDuration(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+    } else {
+        return `${seconds}s`;
+    }
+}
+
+// Expenditure Functions
+function recordExpenditure() {
+    const description = document.getElementById('expenditureDescription').value;
+    const amount = parseFloat(document.getElementById('expenditureAmount').value);
+    const category = document.getElementById('expenditureCategory').value;
+    
+    if (!description || isNaN(amount) || amount <= 0) {
+        alert('Please fill all fields with valid values');
+        return;
+    }
+    
+    expenditures.push({
+        id: Date.now(),
+        description,
+        amount,
+        category,
+        worker: currentUser.username,
+        timestamp: Date.now(),
+        date: new Date().toISOString().split('T')[0]
+    });
+    
+    localStorage.setItem('expenditures', JSON.stringify(expenditures));
+    
+    document.getElementById('expenditureDescription').value = '';
+    document.getElementById('expenditureAmount').value = '';
+    
+    updateWorkerStats();
+    if (currentUser.role === 'admin') {
+        updateFinancialOverview();
+        loadWorkers();
+    }
+    
+    alert('Expenditure recorded successfully');
+}
+
+// Sales Functions - Updated with Manual Quantity Entry
+function addToSale(item, type) {
+    // Check if it's a product and has enough stock
+    if (type === 'product' && item.stock <= 0) {
+        alert('This product is out of stock');
+        return;
+    }
+    
+    // Ask for quantity
+    const quantityInput = prompt(`Enter quantity for ${item.name}:`, "1");
+    if (quantityInput === null) return; // User cancelled
+    
+    const quantity = parseInt(quantityInput);
+    if (isNaN(quantity) || quantity <= 0) {
+        alert('Please enter a valid quantity');
+        return;
+    }
+    
+    // Check stock for products
+    if (type === 'product' && quantity > item.stock) {
+        alert(`Not enough stock. Only ${item.stock} available.`);
+        return;
+    }
+    
+    const existingItem = currentSale.find(s => s.id === item.id && s.type === type);
+    
+    if (existingItem) {
+        existingItem.quantity += quantity;
+    } else {
+        currentSale.push({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: quantity,
+            type: type
+        });
+    }
+    
+    updateSaleTable();
+    updateSaleTotal();
+}
+
+function updateSaleTable() {
+    const table = document.getElementById('currentSaleTable');
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    currentSale.forEach((item, index) => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = item.name;
+        
+        // Add quantity cell with edit capability
+        const qtyCell = row.insertCell(1);
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.className = 'quantity-input';
+        qtyInput.value = item.quantity;
+        qtyInput.min = 1;
+        qtyInput.onchange = (e) => updateItemQuantity(index, parseInt(e.target.value));
+        qtyCell.appendChild(qtyInput);
+        
+        row.insertCell(2).textContent = `Ksh.${item.price.toFixed(2)}`;
+        row.insertCell(3).textContent = `Ksh.${(item.price * item.quantity).toFixed(2)}`;
+        
+        const actionsCell = row.insertCell(4);
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove';
+        removeBtn.className = 'danger-btn';
+        removeBtn.onclick = () => removeFromSale(index);
+        actionsCell.appendChild(removeBtn);
+    });
+}
+
+function updateItemQuantity(index, newQuantity) {
+    if (isNaN(newQuantity) || newQuantity < 1) {
+        alert('Please enter a valid quantity');
+        updateSaleTable(); // Reset to original value
+        return;
+    }
+    
+    const item = currentSale[index];
+    
+    // Check stock for products
+    if (item.type === 'product') {
+        const product = products.find(p => p.id === item.id);
+        if (newQuantity > product.stock) {
+            alert(`Not enough stock. Only ${product.stock} available.`);
+            updateSaleTable(); // Reset to original value
+            return;
+        }
+    }
+    
+    item.quantity = newQuantity;
+    updateSaleTable();
+    updateSaleTotal();
+}
+
+function removeFromSale(index) {
+    currentSale.splice(index, 1);
+    updateSaleTable();
+    updateSaleTotal();
+}
+
+// Discount Functions
+function applyDiscount() {
+    const discountType = document.querySelector('input[name="discountType"]:checked').value;
+    const discountValue = parseFloat(document.getElementById('discountValue').value);
+    
+    if (isNaN(discountValue) || discountValue <= 0) {
+        alert('Please enter a valid discount value');
+        return;
+    }
+    
+    const subtotal = currentSale.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    if (discountType === 'percentage') {
+        if (discountValue > 100) {
+            alert('Percentage discount cannot exceed 100%');
+            return;
+        }
+        currentDiscount = {
+            type: 'percentage',
+            value: discountValue,
+            amount: (subtotal * discountValue) / 100
+        };
+    } else {
+        if (discountValue > subtotal) {
+            alert('Fixed discount cannot exceed subtotal');
+            return;
+        }
+        currentDiscount = {
+            type: 'fixed',
+            value: discountValue,
+            amount: discountValue
+        };
+    }
+    
+    updateSaleTotal();
+    document.getElementById('discountValue').value = '';
+}
+
+function removeDiscount() {
+    currentDiscount = null;
+    updateSaleTotal();
+}
+
+function updateSaleTotal() {
+    const subtotal = currentSale.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    document.getElementById('saleSubtotal').textContent = subtotal.toFixed(2);
+    
+    let total = subtotal;
+    let discountAmount = 0;
+    
+    if (currentDiscount) {
+        discountAmount = currentDiscount.amount;
+        total = subtotal - discountAmount;
+        
+        document.getElementById('discountAmount').textContent = discountAmount.toFixed(2);
+        document.getElementById('discountLine').style.display = 'block';
+    } else {
+        document.getElementById('discountLine').style.display = 'none';
+    }
+    
+    document.getElementById('saleTotal').textContent = total.toFixed(2);
+}
+
+function completeSale() {
+    if (currentSale.length === 0) {
+        alert('No items in sale');
+        return;
+    }
+    
+    // Check stock availability
+    for (const item of currentSale) {
+        if (item.type === 'product') {
+            const product = products.find(p => p.id === item.id);
+            if (product.stock < item.quantity) {
+                alert(`Not enough stock for ${item.name}`);
+                return;
+            }
+        }
+    }
+    
+    // Get payment mode
+    const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
+    
+    // Get customer details
+    const customer = getCustomerDetails();
+    
+    // Update stock and record transaction
+    for (const item of currentSale) {
+        if (item.type === 'product') {
+            const product = products.find(p => p.id === item.id);
+            product.stock -= item.quantity;
+        }
+    }
+    
+    const subtotal = currentSale.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const discountAmount = currentDiscount ? currentDiscount.amount : 0;
+    const total = subtotal - discountAmount;
+    
+    const transaction = {
+        id: Date.now(),
+        receiptNumber: `RCPT-${receiptCounter.toString().padStart(4, '0')}`,
+        items: [...currentSale],
+        subtotal: subtotal,
+        discount: currentDiscount,
+        discountAmount: discountAmount,
+        total: total,
+        worker: currentUser.username,
+        paymentMode: paymentMode,
+        customer: customer,
+        timestamp: Date.now(),
+        date: new Date().toISOString().split('T')[0]
+    };
+    
+    transactions.push(transaction);
+    
+    // Update storage
+    localStorage.setItem('products', JSON.stringify(products));
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+    
+    // Increment receipt counter
+    receiptCounter++;
+    localStorage.setItem('receiptCounter', receiptCounter.toString());
+    
+    // Generate receipt
+    generateReceipt(transaction);
+    
+    // Reset sale
+    currentSale = [];
+    currentDiscount = null;
+    resetCustomerDetails();
+    updateSaleTable();
+    updateSaleTotal();
+    
+    // Refresh product display
+    loadWorkerProducts();
+    updateWorkerStats();
+    
+    if (currentUser.role === 'admin') {
+        updateFinancialOverview();
+        loadWorkers();
+    }
+}
+
+// UPDATED: Generate receipt with logo on left
+function generateReceipt(transaction) {
+    const receipt = document.getElementById('receipt');
+    
+    let receiptHTML = `
+        <div class="receipt-header-with-logo">
+            <img src="images/logo.png" alt="Bosom Buddy Nexus Logo" class="receipt-logo">
+            <div class="receipt-company-info">
+                <div class="receipt-title">BOSOM BUDDY NEXUS</div>
+                <div class="receipt-address">PO Box 1225-80108 Kilifi</div>
+                <div class="receipt-contact">Email: bosombuddynexus@gmail.com</div>
+                <div class="receipt-contact">Phone: 0748800220 / 0785586494</div>
+            </div>
+        </div>
+        <div class="receipt-contact">Dealers in Cyber Services, Electronics, Videography, Music Production, Electricals etc.</div>
+        <div class="receipt-divider"></div>
+        <div>Receipt: ${transaction.receiptNumber}</div>
+        <div>Date: ${new Date(transaction.timestamp).toLocaleString()}</div>
+        <div>Cashier: ${transaction.worker}</div>
+        <div>Payment: ${transaction.paymentMode.charAt(0).toUpperCase() + transaction.paymentMode.slice(1)}</div>
+    `;
+    
+    // Add customer details if available
+    if (transaction.customer) {
+        receiptHTML += `
+            <div>Customer: ${transaction.customer.name}</div>
+            <div>Phone: ${transaction.customer.phone}</div>
+        `;
+    }
+    
+    receiptHTML += `
+        <div class="receipt-divider"></div>
+        <table class="receipt-table">
+            <tr>
+                <th class="item-desc">Item</th>
+                <th class="item-price">Price</th>
+                <th class="item-qty">Qty</th>
+                <th class="item-total">Total</th>
+            </tr>
+    `;
+    
+    transaction.items.forEach(item => {
+        receiptHTML += `
+            <tr>
+                <td class="item-desc">${item.name}</td>
+                <td class="item-price">${item.price.toFixed(2)}</td>
+                <td class="item-qty">${item.quantity}</td>
+                <td class="item-total">${(item.price * item.quantity).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    
+    receiptHTML += `
+        </table>
+        <div class="receipt-divider"></div>
+        <div class="receipt-totals">
+            <div><span>Subtotal:</span><span>Ksh.${transaction.subtotal.toFixed(2)}</span></div>
+    `;
+    
+    if (transaction.discount) {
+        const discountType = transaction.discount.type === 'percentage' ? `${transaction.discount.value}%` : 'Fixed';
+        receiptHTML += `
+            <div><span>Discount (${discountType}):</span><span>-Ksh.${transaction.discountAmount.toFixed(2)}</span></div>
+        `;
+    }
+    
+    receiptHTML += `
+            <div class="receipt-total"><span>TOTAL:</span><span>Ksh.${transaction.total.toFixed(2)}</span></div>
+        </div>
+        <div class="receipt-footer">
+            Thank you for your Business.<br>
+            Karibu Tena!
+        </div>
+    `;
+    
+    receipt.innerHTML = receiptHTML;
+    receipt.classList.remove('hidden');
+    
+    // Print receipt without blank page
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Receipt</title>
+                <style>
+                    body { 
+                        font-family: 'Courier New', monospace; 
+                        margin: 0; 
+                        padding: 20px;
+                        font-size: 12px;
+                    }
+                    .receipt-header-with-logo { 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center; 
+                        margin-bottom: 10px; 
+                        position: relative;
+                    }
+                    .receipt-logo { 
+                        position: absolute; 
+                        left: 0; 
+                        height: 50px; 
+                    }
+                    .receipt-company-info { 
+                        text-align: center; 
+                    }
+                    .receipt-title { font-size: 18px; font-weight: bold; margin-bottom: 3px; }
+                    .receipt-address { font-size: 10px; margin-bottom: 2px; }
+                    .receipt-contact { font-size: 10px; margin-bottom: 3px; }
+                    .receipt-divider { border-top: 1px dashed #000; margin: 8px 0; }
+                    .receipt-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 10px; }
+                    .receipt-table th { border-bottom: 1px dashed #000; text-align: left; padding: 2px 0; }
+                    .receipt-table td { padding: 2px 0; }
+                    .receipt-table .item-desc { width: 40%; }
+                    .receipt-table .item-price { width: 20%; text-align: right; }
+                    .receipt-table .item-qty { width: 20%; text-align: center; }
+                    .receipt-table .item-total { width: 40%; text-align: right; }
+                    .receipt-totals { width: 100%; margin-top: 8px; font-size: 10px; }
+                    .receipt-totals div { display: flex; justify-content: space-between; }
+                    .receipt-total { font-weight: bold; border-top: 1px solid #000; padding-top: 3px; margin-top: 3px; }
+                    .receipt-footer { text-align: center; font-size: 9px; margin-top: 12px; }
+                    @media print {
+                        @page {
+                            size: auto;
+                            margin: 0;
+                        }
+                        body {
+                            margin: 0;
+                            padding: 10px;
+                        }
+                    }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                ${receiptHTML}
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+    
+    // Hide receipt after printing
+    setTimeout(() => {
+        receipt.classList.add('hidden');
+    }, 500);
+}
+
+// Worker Product/Service Functions
+function workerAddProduct() {
+    const name = document.getElementById('workerProductName').value;
+    const stock = parseInt(document.getElementById('workerProductStock').value);
+    const price = parseFloat(document.getElementById('workerProductPrice').value);
+    
+    if (!name || isNaN(stock) || isNaN(price)) {
+        alert('Please fill all fields with valid values');
+        return;
+    }
+    
+    products.push({
+        id: Date.now(),
+        name,
+        stock,
+        price
+    });
+    
+    localStorage.setItem('products', JSON.stringify(products));
+    document.getElementById('workerProductName').value = '';
+    document.getElementById('workerProductStock').value = '';
+    document.getElementById('workerProductPrice').value = '';
+    loadWorkerProducts();
+}
+
+function workerAddService() {
+    const name = document.getElementById('workerServiceName').value;
+    const price = parseFloat(document.getElementById('workerServicePrice').value);
+    
+    if (!name || isNaN(price)) {
+        alert('Please fill all fields with valid values');
+        return;
+    }
+    
+    services.push({
+        id: Date.now(),
+        name,
+        price
+    });
+    
+    localStorage.setItem('services', JSON.stringify(services));
+    document.getElementById('workerServiceName').value = '';
+    document.getElementById('workerServicePrice').value = '';
+    loadWorkerServices();
+}
+
+function loadWorkerProducts() {
+    const table = document.getElementById('workerProductTable');
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    products.forEach(product => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = product.name;
+        
+        const stockCell = row.insertCell(1);
+        stockCell.textContent = product.stock;
+        if (product.stock === 0) {
+            stockCell.className = 'out-of-stock';
+        } else if (product.stock < 5) {
+            stockCell.className = 'low-stock';
+        }
+        
+        row.insertCell(2).textContent = `Ksh.${product.price.toFixed(2)}`;
+        
+        const actionsCell = row.insertCell(3);
+        const addBtn = document.createElement('button');
+        addBtn.textContent = 'Add to Sale';
+        addBtn.onclick = () => addToSale(product, 'product');
+        actionsCell.appendChild(addBtn);
+    });
+}
+
+function loadWorkerServices() {
+    const table = document.getElementById('workerServiceTable');
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    
+    services.forEach(service => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = service.name;
+        row.insertCell(1).textContent = `Ksh.${service.price.toFixed(2)}`;
+        
+        const actionsCell = row.insertCell(2);
+        const addBtn = document.createElement('button');
+        addBtn.textContent = 'Add to Sale';
+        addBtn.onclick = () => addToSale(service, 'service');
+        actionsCell.appendChild(addBtn);
+    });
+}
+
+// Reporting Functions
+function loadWorkerSelect() {
+    const select = document.getElementById('reportWorkerSelect');
+    select.innerHTML = '<option value="all">All Workers</option>';
+    
+    const workers = users.filter(u => u.role === 'worker');
+    workers.forEach(worker => {
+        const option = document.createElement('option');
+        option.value = worker.username;
+        option.textContent = worker.username;
+        select.appendChild(option);
+    });
+}
+
+function viewDailyReport() {
+    const worker = document.getElementById('reportWorkerSelect').value;
+    const date = document.getElementById('reportDate').value;
+    
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+    
+    let filteredTransactions = transactions.filter(t => t.date === date);
+    let filteredExpenditures = expenditures.filter(e => e.date === date);
+    
+    if (worker !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => t.worker === worker);
+        filteredExpenditures = filteredExpenditures.filter(e => e.worker === worker);
+    }
+    
+    displayReport(filteredTransactions, filteredExpenditures, `Daily Report for ${date}`);
+}
+
+function viewMonthlyReport() {
+    const worker = document.getElementById('reportWorkerSelect').value;
+    const date = document.getElementById('reportDate').value;
+    
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+    
+    const yearMonth = date.substring(0, 7); // YYYY-MM
+    
+    let filteredTransactions = transactions.filter(t => t.date.startsWith(yearMonth));
+    let filteredExpenditures = expenditures.filter(e => e.date.startsWith(yearMonth));
+    
+    if (worker !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => t.worker === worker);
+        filteredExpenditures = filteredExpenditures.filter(e => e.worker === worker);
+    }
+    
+    displayReport(filteredTransactions, filteredExpenditures, `Monthly Report for ${yearMonth}`);
+}
+
+function displayReport(transactions, expenditures, title) {
+    const display = document.getElementById('reportDisplay');
+    
+    if (transactions.length === 0 && expenditures.length === 0) {
+        display.innerHTML = `<p>No records found for the selected criteria.</p>`;
+        return;
+    }
+    
+    let html = `<h4>${title}</h4>`;
+    
+    if (transactions.length > 0) {
+        html += `<h5>Sales Transactions</h5>`;
+        html += `<table><tr><th>Receipt</th><th>Date</th><th>Worker</th><th>Payment</th><th>Customer</th><th>Items</th><th>Total</th></tr>`;
+        
+        const salesTotal = transactions.reduce((sum, t) => sum + t.total, 0);
+        
+        transactions.forEach(transaction => {
+            const customerInfo = transaction.customer ? 
+                `${transaction.customer.name} (${transaction.customer.phone})` : 'Walk-in';
+                
+            html += `
+                <tr>
+                    <td>${transaction.receiptNumber}</td>
+                    <td>${new Date(transaction.timestamp).toLocaleString()}</td>
+                    <td>${transaction.worker}</td>
+                    <td>${transaction.paymentMode}</td>
+                    <td>${customerInfo}</td>
+                    <td>${transaction.items.map(i => `${i.name} (${i.quantity})`).join(', ')}</td>
+                    <td>Ksh.${transaction.total.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `</table>`;
+        html += `<p><strong>Total Sales: Ksh.${salesTotal.toFixed(2)}</strong></p>`;
+    }
+    
+    if (expenditures.length > 0) {
+        html += `<h5>Expenditures</h5>`;
+        html += `<table><tr><th>Date</th><th>Worker</th><th>Description</th><th>Category</th><th>Amount</th></tr>`;
+        
+        const expendituresTotal = expenditures.reduce((sum, e) => sum + e.amount, 0);
+        
+        expenditures.forEach(expenditure => {
+            html += `
+                <tr>
+                    <td>${new Date(expenditure.timestamp).toLocaleString()}</td>
+                    <td>${expenditure.worker}</td>
+                    <td>${expenditure.description}</td>
+                    <td>${expenditure.category}</td>
+                    <td>Ksh.${expenditure.amount.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `</table>`;
+        html += `<p><strong>Total Expenditures: Ksh.${expendituresTotal.toFixed(2)}</strong></p>`;
+    }
+    
+    const netTotal = (transactions.reduce((sum, t) => sum + t.total, 0) - expenditures.reduce((sum, e) => sum + e.amount, 0));
+    html += `<p><strong>Net Balance: Ksh.${netTotal.toFixed(2)}</strong></p>`;
+    
+    display.innerHTML = html;
+}
+
+// Worker Reporting Functions
+function viewWorkerDailyReport() {
+    const date = document.getElementById('workerReportDate').value;
+    
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+    
+    const filteredTransactions = transactions.filter(t => 
+        t.date === date && t.worker === currentUser.username
+    );
+    
+    const filteredExpenditures = expenditures.filter(e => 
+        e.date === date && e.worker === currentUser.username
+    );
+    
+    displayWorkerReport(filteredTransactions, filteredExpenditures, `Your Daily Statement for ${date}`);
+}
+
+function viewWorkerMonthlyReport() {
+    const date = document.getElementById('workerReportDate').value;
+    
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+    
+    const yearMonth = date.substring(0, 7); // YYYY-MM
+    
+    const filteredTransactions = transactions.filter(t => 
+        t.date.startsWith(yearMonth) && t.worker === currentUser.username
+    );
+    
+    const filteredExpenditures = expenditures.filter(e => 
+        e.date.startsWith(yearMonth) && e.worker === currentUser.username
+    );
+    
+    displayWorkerReport(filteredTransactions, filteredExpenditures, `Your Monthly Statement for ${yearMonth}`);
+}
+
+function displayWorkerReport(transactions, expenditures, title) {
+    const display = document.getElementById('workerReportDisplay');
+    
+    if (transactions.length === 0 && expenditures.length === 0) {
+        display.innerHTML = `<p>No records found for the selected criteria.</p>`;
+        return;
+    }
+    
+    let html = `<h4>${title}</h4>`;
+    
+    if (transactions.length > 0) {
+        html += `<h5>Your Sales</h5>`;
+        html += `<table><tr><th>Receipt</th><th>Date</th><th>Payment</th><th>Customer</th><th>Items</th><th>Total</th></tr>`;
+        
+        const salesTotal = transactions.reduce((sum, t) => sum + t.total, 0);
+        
+        transactions.forEach(transaction => {
+            const customerInfo = transaction.customer ? 
+                `${transaction.customer.name} (${transaction.customer.phone})` : 'Walk-in';
+                
+            html += `
+                <tr>
+                    <td>${transaction.receiptNumber}</td>
+                    <td>${new Date(transaction.timestamp).toLocaleString()}</td>
+                    <td>${transaction.paymentMode}</td>
+                    <td>${customerInfo}</td>
+                    <td>${transaction.items.map(i => `${i.name} (${i.quantity})`).join(', ')}</td>
+                    <td>Ksh.${transaction.total.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `</table>`;
+        html += `<p><strong>Your Total Sales: Ksh.${salesTotal.toFixed(2)}</strong></p>`;
+    }
+    
+    if (expenditures.length > 0) {
+        html += `<h5>Your Expenditures</h5>`;
+        html += `<table><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th></tr>`;
+        
+        const expendituresTotal = expenditures.reduce((sum, e) => sum + e.amount, 0);
+        
+        expenditures.forEach(expenditure => {
+            html += `
+                <tr>
+                    <td>${new Date(expenditure.timestamp).toLocaleString()}</td>
+                    <td>${expenditure.description}</td>
+                    <td>${expenditure.category}</td>
+                    <td>Ksh.${expenditure.amount.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `</table>`;
+        html += `<p><strong>Your Total Expenditures: Ksh.${expendituresTotal.toFixed(2)}</strong></p>`;
+    }
+    
+    const netTotal = (transactions.reduce((sum, t) => sum + t.total, 0) - expenditures.reduce((sum, e) => sum + e.amount, 0));
+    html += `<p><strong>Your Net Balance: Ksh.${netTotal.toFixed(2)}</strong></p>`;
+    
+    display.innerHTML = html;
+}
+
+// PDF Generation Functions
+function generatePDFReport() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const worker = document.getElementById('reportWorkerSelect').value;
+    const date = document.getElementById('reportDate').value;
+    
+    let title = 'Financial Report';
+    let filteredTransactions = [...transactions];
+    let filteredExpenditures = [...expenditures];
+    
+    if (date) {
+        if (date.includes('-')) {
+            // Monthly report
+            const yearMonth = date.substring(0, 7);
+            filteredTransactions = transactions.filter(t => t.date.startsWith(yearMonth));
+            filteredExpenditures = expenditures.filter(e => e.date.startsWith(yearMonth));
+            title = `Monthly Report for ${yearMonth}`;
+        } else {
+            // Daily report
+            filteredTransactions = transactions.filter(t => t.date === date);
+            filteredExpenditures = expenditures.filter(e => e.date === date);
+            title = `Daily Report for ${date}`;
+        }
+    }
+    
+    if (worker !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => t.worker === worker);
+        filteredExpenditures = filteredExpenditures.filter(e => e.worker === worker);
+        title += ` - Worker: ${worker}`;
+    }
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.text('BOSOM BUDDY NEXUS', 105, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(title, 105, 25, { align: 'center' });
+    
+    let yPosition = 35;
+    
+    // Add sales table
+    if (filteredTransactions.length > 0) {
+        doc.setFontSize(12);
+        doc.text('Sales Transactions', 14, yPosition);
+        yPosition += 8;
+        
+        const salesHeaders = [['Receipt', 'Date', 'Worker', 'Payment', 'Customer', 'Amount']];
+        const salesData = filteredTransactions.map(t => [
+            t.receiptNumber,
+            new Date(t.timestamp).toLocaleDateString(),
+            t.worker,
+            t.paymentMode,
+            t.customer ? `${t.customer.name} (${t.customer.phone})` : 'Walk-in',
+            `Ksh.${t.total.toFixed(2)}`
+        ]);
+        
+        doc.autoTable({
+            startY: yPosition,
+            head: salesHeaders,
+            body: salesData,
+            theme: 'grid',
+            headStyles: { fillColor: [100, 100, 255] }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        const salesTotal = filteredTransactions.reduce((sum, t) => sum + t.total, 0);
+        doc.text(`Total Sales: Ksh.${salesTotal.toFixed(2)}`, 14, yPosition);
+        yPosition += 15;
+    }
+    
+    // Add expenditures table
+    if (filteredExpenditures.length > 0) {
+        doc.setFontSize(12);
+        doc.text('Expenditures', 14, yPosition);
+        yPosition += 8;
+        
+        const expHeaders = [['Date', 'Worker', 'Description', 'Category', 'Amount']];
+        const expData = filteredExpenditures.map(e => [
+            new Date(e.timestamp).toLocaleDateString(),
+            e.worker,
+            e.description,
+            e.category,
+            `Ksh.${e.amount.toFixed(2)}`
+        ]);
+        
+        doc.autoTable({
+            startY: yPosition,
+            head: expHeaders,
+            body: expData,
+            theme: 'grid',
+            headStyles: { fillColor: [255, 100, 100] }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        const expTotal = filteredExpenditures.reduce((sum, e) => sum + e.amount, 0);
+        doc.text(`Total Expenditures: Ksh.${expTotal.toFixed(2)}`, 14, yPosition);
+        yPosition += 15;
+    }
+    
+    // Add net balance
+    const netBalance = (filteredTransactions.reduce((sum, t) => sum + t.total, 0) - 
+                       filteredExpenditures.reduce((sum, e) => sum + e.amount, 0));
+    doc.setFontSize(12);
+    doc.text(`Net Balance: Ksh.${netBalance.toFixed(2)}`, 14, yPosition);
+    
+    // Save the PDF
+    doc.save(`Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+function generateWorkerPDFReport() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const date = document.getElementById('workerReportDate').value;
+    
+    let title = 'My Financial Statement';
+    let filteredTransactions = transactions.filter(t => t.worker === currentUser.username);
+    let filteredExpenditures = expenditures.filter(e => e.worker === currentUser.username);
+    
+    if (date) {
+        if (date.includes('-')) {
+            // Monthly report
+            const yearMonth = date.substring(0, 7);
+            filteredTransactions = filteredTransactions.filter(t => t.date.startsWith(yearMonth));
+            filteredExpenditures = filteredExpenditures.filter(e => e.date.startsWith(yearMonth));
+            title = `My Monthly Statement for ${yearMonth}`;
+        } else {
+            // Daily report
+            filteredTransactions = filteredTransactions.filter(t => t.date === date);
+            filteredExpenditures = filteredExpenditures.filter(e => e.date === date);
+            title = `My Daily Statement for ${date}`;
+        }
+    }
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.text('BOSOM BUDDY NEXUS', 105, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(title, 105, 25, { align: 'center' });
+    doc.text(`Worker: ${currentUser.username}`, 105, 32, { align: 'center' });
+    
+    let yPosition = 40;
+    
+    // Add sales table
+    if (filteredTransactions.length > 0) {
+        doc.setFontSize(12);
+        doc.text('My Sales', 14, yPosition);
+        yPosition += 8;
+        
+        const salesHeaders = [['Receipt', 'Date', 'Payment', 'Customer', 'Amount']];
+        const salesData = filteredTransactions.map(t => [
+            t.receiptNumber,
+            new Date(t.timestamp).toLocaleDateString(),
+            t.paymentMode,
+            t.customer ? `${t.customer.name} (${t.customer.phone})` : 'Walk-in',
+            `Ksh.${t.total.toFixed(2)}`
+        ]);
+        
+        doc.autoTable({
+            startY: yPosition,
+            head: salesHeaders,
+            body: salesData,
+            theme: 'grid',
+            headStyles: { fillColor: [100, 100, 255] }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        const salesTotal = filteredTransactions.reduce((sum, t) => sum + t.total, 0);
+        doc.text(`My Total Sales: Ksh.${salesTotal.toFixed(2)}`, 14, yPosition);
+        yPosition += 15;
+    }
+    
+    // Add expenditures table
+    if (filteredExpenditures.length > 0) {
+        doc.setFontSize(12);
+        doc.text('My Expenditures', 14, yPosition);
+        yPosition += 8;
+        
+        const expHeaders = [['Date', 'Description', 'Category', 'Amount']];
+        const expData = filteredExpenditures.map(e => [
+            new Date(e.timestamp).toLocaleDateString(),
+            e.description,
+            e.category,
+            `Ksh.${e.amount.toFixed(2)}`
+        ]);
+        
+        doc.autoTable({
+            startY: yPosition,
+            head: expHeaders,
+            body: expData,
+            theme: 'grid',
+            headStyles: { fillColor: [255, 100, 100] }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        const expTotal = filteredExpenditures.reduce((sum, e) => sum + e.amount, 0);
+        doc.text(`My Total Expenditures: Ksh.${expTotal.toFixed(2)}`, 14, yPosition);
+        yPosition += 15;
+    }
+    
+    // Add net balance
+    const netBalance = (filteredTransactions.reduce((sum, t) => sum + t.total, 0) - 
+                       filteredExpenditures.reduce((sum, e) => sum + e.amount, 0));
+    doc.setFontSize(12);
+    doc.text(`My Net Balance: Ksh.${netBalance.toFixed(2)}`, 14, yPosition);
+    
+    // Save the PDF
+    doc.save(`My_Statement_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+// Utility Functions
+function filterItems() {
+    const searchTerm = document.getElementById('searchBar').value.toLowerCase();
+    
+    // Filter products
+    const productRows = document.getElementById('workerProductTable').rows;
+    for (let i = 1; i < productRows.length; i++) {
+        const productName = productRows[i].cells[0].textContent.toLowerCase();
+        productRows[i].style.display = productName.includes(searchTerm) ? '' : 'none';
+    }
+    
+    // Filter services
+    const serviceRows = document.getElementById('workerServiceTable').rows;
+    for (let i = 1; i < serviceRows.length; i++) {
+        const serviceName = serviceRows[i].cells[0].textContent.toLowerCase();
+        serviceRows[i].style.display = serviceName.includes(searchTerm) ? '' : 'none';
+    }
+}
+
+function updateWorkerStats() {
+    const today = new Date().toISOString().split('T')[0];
+    const todayTransactions = transactions.filter(t => 
+        t.date === today && t.worker === currentUser.username
+    );
+    
+    const todayExpenditures = expenditures.filter(e => 
+        e.date === today && e.worker === currentUser.username
+    );
+    
+    document.getElementById('todaySales').textContent = todayTransactions.length;
+    const todayTotal = todayTransactions.reduce((sum, t) => sum + t.total, 0);
+    document.getElementById('todayTotal').textContent = todayTotal.toFixed(2);
+    
+    const myExpenditures = todayExpenditures.reduce((sum, e) => sum + e.amount, 0);
+    document.getElementById('myExpenditures').textContent = myExpenditures.toFixed(2);
+    
+    const myBalance = calculateWorkerBalance(currentUser.username);
+    document.getElementById('myBalance').textContent = myBalance.toFixed(2);
+}
+
+function updateFinancialOverview() {
+    const totalSales = transactions.reduce((sum, t) => sum + t.total, 0);
+    const totalExpenditures = expenditures.reduce((sum, e) => sum + e.amount, 0);
+    const netBalance = totalSales - totalExpenditures;
+    
+    document.getElementById('totalSales').textContent = totalSales.toFixed(2);
+    document.getElementById('totalExpenditures').textContent = totalExpenditures.toFixed(2);
+    document.getElementById('netBalance').textContent = netBalance.toFixed(2);
+}
+
+function confirmResetReceiptCounter() {
+    showConfirmModal(
+        'Reset Receipt Counter',
+        'Are you sure you want to reset the receipt counter? This will start numbering from 1 again.',
+        resetReceiptCounter
+    );
+}
+
+function resetReceiptCounter() {
+    receiptCounter = 1;
+    localStorage.setItem('receiptCounter', receiptCounter.toString());
+    updateReceiptCounter();
+    alert('Receipt counter has been reset.');
+}
+
+function updateReceiptCounter() {
+    document.getElementById('currentReceiptCounter').textContent = 
+        receiptCounter.toString().padStart(4, '0');
+}
+
+// Modal Functions
+function showConfirmModal(title, message, confirmCallback) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal">
+            <h3>${title}</h3>
+            <p>${message}</p>
+            <div style="text-align: right; margin-top: 20px;">
+                <button onclick="this.parentElement.parentElement.parentElement.remove()">Cancel</button>
+                <button class="danger-btn" onclick="
+                    this.parentElement.parentElement.parentElement.remove();
+                    ${confirmCallback.name}();
+                ">Confirm</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('reportDate').value = today;
+    document.getElementById('workerReportDate').value = today;
+    
+    // Check if user is already logged in (for page refresh)
+    if (currentUser) {
+        if (currentUser.role === 'admin') {
+            showAdminDashboard();
+        } else {
+            showWorkerDashboard();
+        }
+    }
+});
+</script>
+
+</body>
+</html>
