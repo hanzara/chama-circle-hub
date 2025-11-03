@@ -1,1 +1,4 @@
 project_id = "yrywjbxqlqpdzrudfupm"
+
+[functions.approve-transfer]
+verify_jwt = false
