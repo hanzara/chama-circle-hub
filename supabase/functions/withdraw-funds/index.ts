@@ -6,6 +6,55 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Retry utility with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  initialDelay = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      if (i < maxRetries - 1) {
+        const delay = initialDelay * Math.pow(2, i);
+        console.log(`Retry ${i + 1}/${maxRetries} after ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
+// Fetch with timeout
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeout = 10000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('network_timeout');
+    }
+    throw error;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -149,15 +198,17 @@ serve(async (req) => {
       phone: destinationDetails.phone_number
     });
 
-    // Check Paystack balance before attempting transfer
+    // Check Paystack balance before attempting transfer with retry
     console.log('Checking Paystack balance...');
     try {
-      const balanceResponse = await fetch('https://api.paystack.co/balance', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${paystackSecretKey}`,
-          'Content-Type': 'application/json',
-        },
+      const balanceResponse = await retryWithBackoff(async () => {
+        return await fetchWithTimeout('https://api.paystack.co/balance', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${paystackSecretKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
       });
 
       if (balanceResponse.ok) {
@@ -176,9 +227,9 @@ serve(async (req) => {
           if (paystackBalanceKES < requiredAmount) {
             return new Response(
               JSON.stringify({ 
-                error: 'Withdrawal service temporarily unavailable. Our team has been notified. Please try again later or contact support.',
+                error: 'Insufficient funds in withdrawal service. Our team has been notified. Please try again later or contact support.',
                 success: false,
-                code: 'service_unavailable'
+                code: 'insufficient_balance'
               }),
               { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -189,6 +240,18 @@ serve(async (req) => {
       }
     } catch (balanceError) {
       console.error('Balance check error:', balanceError);
+      const errorMsg = balanceError instanceof Error ? balanceError.message : 'unknown';
+      
+      if (errorMsg === 'network_timeout') {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Network timeout. Please check your connection and try again.',
+            success: false,
+            code: 'network_error'
+          }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       // Continue with transfer if balance check fails (don't block user unnecessarily)
     }
     
@@ -196,39 +259,56 @@ serve(async (req) => {
     let recipientCode;
     
     if (paymentMethod === 'mpesa' || paymentMethod === 'airtel') {
-      // First, fetch the list of mobile money providers to get the correct bank code
-      const banksResponse = await fetch('https://api.paystack.co/bank?currency=KES&type=mobile_money', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${paystackSecretKey}`,
-        },
-      });
-
+      // Fetch mobile money providers with retry and timeout
       let banksData;
       try {
-        banksData = await banksResponse.json();
-      } catch (parseError) {
-        console.error('Failed to parse banks response:', parseError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Payment service error',
-            success: false 
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (!banksResponse.ok || !banksData.status) {
-        console.error('Failed to fetch banks:', { 
-          status: banksResponse.status, 
-          data: banksData 
+        const banksResponse = await retryWithBackoff(async () => {
+          return await fetchWithTimeout('https://api.paystack.co/bank?currency=KES&type=mobile_money', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${paystackSecretKey}`,
+            },
+          });
         });
+
+        try {
+          banksData = await banksResponse.json();
+        } catch (parseError) {
+          console.error('Failed to parse banks response:', parseError);
+          return new Response(
+            JSON.stringify({ 
+              error: 'Payment service error. Please try again.',
+              success: false,
+              code: 'service_error'
+            }),
+            { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        if (!banksResponse.ok || !banksData.status) {
+          console.error('Failed to fetch banks:', { 
+            status: banksResponse.status, 
+            data: banksData 
+          });
+          return new Response(
+            JSON.stringify({ 
+              error: banksData.message || 'Payment service temporarily unavailable',
+              success: false,
+              code: banksResponse.status >= 500 ? 'service_unavailable' : 'payment_error'
+            }),
+            { status: banksResponse.status >= 500 ? 503 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (fetchError) {
+        console.error('Banks fetch error:', fetchError);
+        const errorMsg = fetchError instanceof Error ? fetchError.message : 'unknown';
         return new Response(
           JSON.stringify({ 
-            error: banksData.message || 'Failed to fetch mobile money providers',
-            success: false 
+            error: errorMsg === 'network_timeout' ? 'Network timeout. Please try again.' : 'Payment service temporarily unavailable.',
+            success: false,
+            code: errorMsg === 'network_timeout' ? 'network_error' : 'service_unavailable'
           }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -275,21 +355,23 @@ serve(async (req) => {
       async function createRecipientWithPhone(phone: string) {
         console.log('Creating recipient with phone:', phone);
         try {
-          const resp = await fetch('https://api.paystack.co/transferrecipient', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${paystackSecretKey}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-              type: 'mobile_money',
-              name: user.email || 'User',
-              account_number: phone,
-              bank_code: provider.code,
-              currency: 'KES',
-              metadata: { provider: paymentMethod },
-            }),
+          const resp = await retryWithBackoff(async () => {
+            return await fetchWithTimeout('https://api.paystack.co/transferrecipient', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${paystackSecretKey}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              body: JSON.stringify({
+                type: 'mobile_money',
+                name: user.email || 'User',
+                account_number: phone,
+                bank_code: provider.code,
+                currency: 'KES',
+                metadata: { provider: paymentMethod },
+              }),
+            });
           });
           
           let data;
@@ -297,7 +379,7 @@ serve(async (req) => {
             data = await resp.json();
           } catch (parseError) {
             console.error('Failed to parse recipient response:', parseError);
-            return { ok: false, data: null, message: 'Payment service error' };
+            return { ok: false, data: null, message: 'Payment service error', code: 'service_error' };
           }
           
           console.log('Recipient creation response:', {
@@ -307,10 +389,16 @@ serve(async (req) => {
             message: data?.message
           });
           
-          return { ok: resp.ok && data?.status, data, message: data?.message as string };
+          return { ok: resp.ok && data?.status, data, message: data?.message as string, code: data?.code };
         } catch (error) {
           console.error('Recipient creation error:', error);
-          return { ok: false, data: null, message: error instanceof Error ? error.message : 'Network error' };
+          const errorMsg = error instanceof Error ? error.message : 'Network error';
+          return { 
+            ok: false, 
+            data: null, 
+            message: errorMsg === 'network_timeout' ? 'Network timeout. Please try again.' : 'Payment service error',
+            code: errorMsg === 'network_timeout' ? 'network_error' : 'service_error'
+          };
         }
       }
 
@@ -326,47 +414,64 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             error: recipientResp.message || 'Failed to create recipient',
-            success: false
+            success: false,
+            code: recipientResp.code || 'recipient_error'
           }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: recipientResp.code === 'network_error' ? 503 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       recipientCode = recipientResp.data.data.recipient_code;
     } else {
-      // Create bank recipient
-      const recipientResponse = await fetch('https://api.paystack.co/transferrecipient', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${paystackSecretKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'nuban',
-          name: destinationDetails.account_name,
-          account_number: destinationDetails.account_number,
-          bank_code: destinationDetails.bank_name,
-          currency: 'KES',
-        }),
-      });
+      // Create bank recipient with retry
+      try {
+        const recipientResponse = await retryWithBackoff(async () => {
+          return await fetchWithTimeout('https://api.paystack.co/transferrecipient', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${paystackSecretKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              type: 'nuban',
+              name: destinationDetails.account_name,
+              account_number: destinationDetails.account_number,
+              bank_code: destinationDetails.bank_name,
+              currency: 'KES',
+            }),
+          });
+        });
 
-      const recipientData = await recipientResponse.json();
-      
-      if (!recipientResponse.ok || !recipientData.status) {
-        console.error('Recipient creation failed:', recipientData);
+        const recipientData = await recipientResponse.json();
+        
+        if (!recipientResponse.ok || !recipientData.status) {
+          console.error('Recipient creation failed:', recipientData);
+          return new Response(
+            JSON.stringify({ 
+              error: recipientData.message || 'Failed to create bank recipient',
+              success: false,
+              code: recipientResponse.status >= 500 ? 'service_unavailable' : 'recipient_error'
+            }),
+            { status: recipientResponse.status >= 500 ? 503 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        recipientCode = recipientData.data.recipient_code;
+      } catch (fetchError) {
+        console.error('Bank recipient creation error:', fetchError);
+        const errorMsg = fetchError instanceof Error ? fetchError.message : 'unknown';
         return new Response(
           JSON.stringify({ 
-            error: recipientData.message || 'Failed to create bank recipient',
-            success: false 
+            error: errorMsg === 'network_timeout' ? 'Network timeout. Please try again.' : 'Payment service temporarily unavailable',
+            success: false,
+            code: errorMsg === 'network_timeout' ? 'network_error' : 'service_unavailable'
           }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      recipientCode = recipientData.data.recipient_code;
     }
 
-    // Initialize transfer
+    // Initialize transfer with retry and timeout
     console.log('Initiating Paystack transfer:', {
       recipientCode,
       netAmount,
@@ -374,64 +479,85 @@ serve(async (req) => {
     });
     
     let transferResponse;
-    try {
-      transferResponse = await fetch('https://api.paystack.co/transfer', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${paystackSecretKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          source: 'balance',
-          amount: Math.round(netAmount * 100), // Convert to kobo/cents (net amount after fee)
-          recipient: recipientCode,
-          reason: `Wallet withdrawal via ${paymentMethod}`,
-          reference: `WD${Date.now()}${user.id.substring(0, 8)}`,
-        }),
-      });
-    } catch (fetchError) {
-      console.error('Transfer fetch error:', fetchError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Network error. Please try again.',
-          success: false
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     let transferData;
+    
     try {
-      transferData = await transferResponse.json();
-    } catch (parseError) {
-      console.error('Failed to parse transfer response:', parseError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Payment service error',
-          success: false
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      transferResponse = await retryWithBackoff(async () => {
+        return await fetchWithTimeout('https://api.paystack.co/transfer', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${paystackSecretKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            source: 'balance',
+            amount: Math.round(netAmount * 100), // Convert to kobo/cents (net amount after fee)
+            recipient: recipientCode,
+            reason: `Wallet withdrawal via ${paymentMethod}`,
+            reference: `WD${Date.now()}${user.id.substring(0, 8)}`,
+          }),
+        });
+      });
 
-    console.log('Transfer response:', {
-      ok: transferResponse.ok,
-      status: transferResponse.status,
-      dataStatus: transferData?.status,
-      message: transferData?.message,
-      code: transferData?.code
-    });
+      try {
+        transferData = await transferResponse.json();
+      } catch (parseError) {
+        console.error('Failed to parse transfer response:', parseError);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Payment service error. Please try again.',
+            success: false,
+            code: 'service_error'
+          }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-    if (!transferResponse.ok || !transferData.status) {
-      console.error('Transfer failed:', transferData);
+      console.log('Transfer response:', {
+        ok: transferResponse.ok,
+        status: transferResponse.status,
+        dataStatus: transferData?.status,
+        message: transferData?.message,
+        code: transferData?.code
+      });
+
+      if (!transferResponse.ok || !transferData.status) {
+        console.error('Transfer failed:', transferData);
+        
+        // Handle specific Paystack errors with user-friendly messages
+        let errorMessage = transferData.message || 'Transfer failed';
+        let errorCode = transferData.code;
+        let statusCode = 400;
+        
+        if (transferData.code === 'insufficient_balance' || errorMessage.toLowerCase().includes('balance is not enough')) {
+          errorMessage = 'Insufficient funds in withdrawal service. Our team has been notified. Please try again later or contact support.';
+          errorCode = 'insufficient_balance';
+          statusCode = 503;
+        } else if (transferResponse.status >= 500) {
+          errorMessage = 'Payment service temporarily unavailable. Please try again later.';
+          errorCode = 'service_unavailable';
+          statusCode = 503;
+        }
+        
+        return new Response(
+          JSON.stringify({ 
+            error: errorMessage,
+            success: false,
+            code: errorCode
+          }),
+          { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (fetchError) {
+      console.error('Transfer error:', fetchError);
+      const errorMsg = fetchError instanceof Error ? fetchError.message : 'unknown';
       
-      // Handle specific Paystack errors with user-friendly messages
-      let errorMessage = transferData.message || 'Transfer failed';
-      let errorCode = transferData.code;
+      let errorMessage = 'Payment service temporarily unavailable. Please try again.';
+      let errorCode = 'service_unavailable';
       
-      if (transferData.code === 'insufficient_balance' || errorMessage.toLowerCase().includes('balance is not enough')) {
-        errorMessage = 'Withdrawal service temporarily unavailable. Our team has been notified. Please try again later or contact support.';
-        errorCode = 'service_unavailable';
+      if (errorMsg === 'network_timeout') {
+        errorMessage = 'Network timeout. Please check your connection and try again.';
+        errorCode = 'network_error';
       }
       
       return new Response(
@@ -440,7 +566,7 @@ serve(async (req) => {
           success: false,
           code: errorCode
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -509,8 +635,14 @@ serve(async (req) => {
   } catch (error) {
     console.error('Withdrawal error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: errorMessage }),
+      JSON.stringify({ 
+        error: 'Withdrawal request failed. Please try again.',
+        success: false,
+        code: 'internal_error',
+        details: errorMessage
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
